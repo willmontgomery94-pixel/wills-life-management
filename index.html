@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Will's Life Management</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0f0f0f;
+        color: #f0f0f0;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .home {
+        text-align: center;
+      }
+
+      .home h1 {
+        font-size: 3rem;
+        font-weight: 300;
+        letter-spacing: 0.05em;
+        color: #ffffff;
+      }
+
+      .home p {
+        margin-top: 0.5rem;
+        font-size: 1rem;
+        color: #555;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const { createElement: h, useState } = React;
+
+      function App() {
+        return h(
+          "div",
+          { className: "home" },
+          h("h1", null, "Hi Will 👋"),
+          h("p", null, "Will's Life Management")
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+    </script>
+  </body>
+</html>
