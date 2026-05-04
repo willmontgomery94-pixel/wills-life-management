@@ -512,6 +512,76 @@
 
     .gap { height: 20px; }
 
+    /* ── LINKS PANEL ── */
+    .links-panel {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 16px 20px;
+      min-width: 220px; max-width: 280px; flex-shrink: 0;
+    }
+    .links-panel-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .links-panel-title { font-size: 13px; font-weight: 500; color: var(--forest); }
+    .links-list { display: flex; flex-direction: column; gap: 6px; }
+    .link-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 0; border-bottom: 1px solid var(--border-soft);
+    }
+    .link-row:last-child { border-bottom: none; }
+    .link-anchor {
+      font-size: 13px; color: var(--fern); text-decoration: none;
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .link-anchor:hover { text-decoration: underline; }
+    .link-actions { display: flex; gap: 4px; flex-shrink: 0; margin-left: 8px; }
+
+    /* ── ACC ENTRY EDIT BUTTON ── */
+    .acc-entry-edit {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dim); font-size: 12px; padding: 0 4px;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .acc-mini-row:hover .acc-entry-edit { opacity: 1; }
+    .acc-mini-row { position: relative; }
+
+    /* ── TRACKER CREDS ── */
+    .tracker-creds {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;
+      padding-top: 8px; border-top: 1px solid var(--border-soft);
+    }
+    .tracker-link {
+      font-size: 12px; color: var(--fern); text-decoration: none;
+      padding: 2px 8px; background: var(--mint); border-radius: 4px;
+    }
+    .tracker-link:hover { text-decoration: underline; }
+    .tracker-cred-item { font-size: 12px; color: var(--text-muted); }
+    .tracker-cred-label { color: var(--text-dim); }
+
+    /* ── GARDEN ── */
+    .garden-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    .garden-card {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+      border-left: 3px solid var(--lime); transition: box-shadow 0.2s;
+    }
+    .garden-card:hover { box-shadow: 0 4px 18px rgba(45,74,62,0.08); }
+    .garden-card.garden-skipped { opacity: 0.5; border-left-color: var(--border); }
+    .garden-card.garden-overdue { border-left-color: var(--red); }
+    .garden-card.garden-soon    { border-left-color: var(--amber); }
+    .garden-card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .garden-card-name { font-size: 15px; font-weight: 500; color: var(--forest); }
+    .garden-card-variety { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+    .garden-card-actions { display: flex; gap: 6px; }
+    .garden-card-meta { display: flex; flex-direction: column; gap: 4px; }
+    .garden-meta-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-right: 6px; }
+    .garden-meta-val { font-size: 12px; color: var(--text-muted); }
+    .garden-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+    /* ── BUDGET FREQ ── */
+    .freq-preview { font-size: 12px; color: var(--text-dim); margin-top: -8px; margin-bottom: 12px; }
+
     /* ── NOTES ── */
     .note-panel { margin-top: 0; }
     .note-textarea {
@@ -827,7 +897,7 @@ function Badge({ status, label }) {
 }
 
 function Nav({ tab, setTab }) {
-  const tabs = ['Home','Budget','Accounts','Tracker','Home Keeping'];
+  const tabs = ['Home','Budget','Accounts','Tracker','Home Keeping','Garden'];
   return h('nav', { className:'nav' },
     h('div', { className:'nav-brand' },
       'W', h('span', { className:'nav-brand-amp' }, '&'), 'R',
@@ -859,7 +929,7 @@ function PotIcon() {
   );
 }
 
-function HomePage({ hkTasks, note, setNote }) {
+function HomePage({ hkTasks, note, setNote, gardenPlants }) {
   const dateStr = TODAY.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
   const [draft, setDraft] = useState(note);
   const [saved, setSaved] = useState(false);
@@ -912,6 +982,34 @@ function HomePage({ hkTasks, note, setNote }) {
             ))
       )
     ),
+    gardenPlants && gardenPlants.length > 0 && h('div', { className:'home-grid', style:{marginTop:18} },
+      h('div', { className:'home-panel' },
+        h('div', { className:'home-panel-title' }, '🌱 Garden — Action Needed'),
+        (() => {
+          const now = new Date(); now.setHours(0,0,0,0);
+          const alerts = gardenPlants.filter(p => {
+            if (p.skipYear) return false;
+            if (!p.plantDate) return false;
+            const d = new Date(p.plantDate); d.setHours(0,0,0,0);
+            const days = Math.round((d - now) / 86400000);
+            return days <= 30;
+          }).sort((a,b) => new Date(a.plantDate)-new Date(b.plantDate));
+          if (alerts.length===0) return h('p',{className:'home-empty'},'✓ Nothing to plant in the next month');
+          return alerts.map(p => {
+            const days = Math.round((new Date(p.plantDate)-now)/86400000);
+            const st = days<=0?'overdue':days<=7?'due-soon':'ok';
+            const lbl = days<0?`Overdue ${Math.abs(days)}d`:days===0?'Plant today!':'Plant in '+days+'d';
+            return h('div',{key:p.id,className:'due-item'},
+              h('div',null,
+                h('div',{className:'due-item-name'},p.name+(p.variety?' — '+p.variety:'')),
+                p.bloom && h('div',{className:'due-item-sub'},'Blooms: '+p.bloom)
+              ),
+              h(Badge,{status:st,label:lbl})
+            );
+          });
+        })()
+      )
+    ),
     h('div', { className:'home-panel note-panel', style:{ marginTop:18 } },
       h('div', { className:'home-panel-title' }, 'Notes'),
       h('textarea', {
@@ -930,10 +1028,25 @@ function HomePage({ hkTasks, note, setNote }) {
 
 // ── BUDGET PAGE ───────────────────────────────────────────────────────────────
 
+// Convert any frequency to a monthly amount
+function freqToMonthly(amount, freqNum, freqUnit) {
+  const n = parseFloat(amount) || 0;
+  const num = parseInt(freqNum) || 1;
+  if (freqUnit === 'days')   return (n * 365) / (num * 12); // annualise then monthly
+  if (freqUnit === 'months') return n / num;
+  if (freqUnit === 'years')  return n / (num * 12);
+  return n; // default monthly
+}
+
 function BudgetRowModal({ row, onSave, onClose }) {
-  const [name,  setName]  = useState(row ? row.name : '');
-  const [amount, setAmt]  = useState(row ? String(row.amount) : '');
-  const [isPot,  setIsPot]= useState(row ? !!row.isPot : false);
+  const [name,    setName]   = useState(row ? row.name : '');
+  const [amount,  setAmt]    = useState(row ? String(row.rawAmount || row.amount) : '');
+  const [isPot,   setIsPot]  = useState(row ? !!row.isPot : false);
+  const [freqNum, setFreqNum]= useState(row ? String(row.freqNum || 1) : '1');
+  const [freqUnit,setFreqUnit]= useState(row ? (row.freqUnit || 'months') : 'months');
+
+  const monthly = freqToMonthly(amount, freqNum, freqUnit);
+
   return h('div', { className:'modal-overlay', onClick:onClose },
     h('div', { className:'modal', onClick:e=>e.stopPropagation() },
       h('div', { className:'modal-title' }, row ? 'Edit Item' : 'Add Item'),
@@ -942,8 +1055,26 @@ function BudgetRowModal({ row, onSave, onClose }) {
         h('input', { className:'form-input', value:name, onChange:e=>setName(e.target.value) })
       ),
       h('div', { className:'form-row' },
-        h('label', { className:'form-label' }, 'Monthly amount (£)'),
-        h('input', { type:'number', className:'form-input', value:amount, onChange:e=>setAmt(e.target.value) })
+        h('label', { className:'form-label' }, 'Amount (£)'),
+        h('input', { type:'number', className:'form-input', value:amount,
+          placeholder:'e.g. 300', onChange:e=>setAmt(e.target.value) })
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Frequency'),
+        h('div', { style:{display:'flex', gap:8, alignItems:'center'} },
+          h('span', { style:{fontSize:13,color:'var(--text-dim)'} }, 'Every'),
+          h('input', { type:'number', min:1, className:'form-input',
+            style:{width:70}, value:freqNum, onChange:e=>setFreqNum(e.target.value) }),
+          h('select', { className:'form-select', style:{width:110}, value:freqUnit,
+            onChange:e=>setFreqUnit(e.target.value) },
+            h('option',{value:'days'},'Days'),
+            h('option',{value:'months'},'Months'),
+            h('option',{value:'years'},'Years')
+          )
+        )
+      ),
+      h('div', { style:{fontSize:12,color:'var(--text-dim)',marginBottom:16,marginTop:-8} },
+        '≈ ', fmt(isNaN(monthly)?0:monthly), ' / month'
       ),
       h('div', { className:'form-row' },
         h('div', { className:'pot-toggle-row' },
@@ -951,7 +1082,7 @@ function BudgetRowModal({ row, onSave, onClose }) {
             h('input', { type:'checkbox', checked:isPot, onChange:e=>setIsPot(e.target.checked),
               style:{ marginRight:8, accentColor:'var(--fern)' } }),
             h(PotIcon),
-            'This is a savings pot (money moves into a pot, not spent directly)'
+            'This is a savings pot'
           )
         )
       ),
@@ -959,7 +1090,10 @@ function BudgetRowModal({ row, onSave, onClose }) {
         h('button', { className:'btn-cancel', onClick:onClose }, 'Cancel'),
         h('button', { className:'btn-save', onClick:() => {
           if (!name.trim()||isNaN(parseFloat(amount))) return;
-          onSave({ name:name.trim(), amount:parseFloat(amount), isPot });
+          const mon = freqToMonthly(amount, freqNum, freqUnit);
+          onSave({ name:name.trim(), amount:parseFloat(mon.toFixed(2)),
+            rawAmount:parseFloat(amount), freqNum:parseInt(freqNum), freqUnit,
+            isPot });
         }}, 'Save')
       )
     )
@@ -1159,10 +1293,10 @@ function BudgetPage({ deposits, setDeposits, bills, setBills, joint, setJoint, p
 // ── ACCOUNTS PAGE ─────────────────────────────────────────────────────────────
 
 const INIT_PAY = {
-  salaryAnnual:   42000,
-  incomeTaxAnnual:7486,
-  niAnnual:       3300,
-  pensionPct:     5,       // % of gross
+  salaryAnnual:    32019,   // £2,668.25/month × 12 (from payslip)
+  incomeTaxAnnual: 3696,    // Tax year to date (week 51 payslip)
+  niAnnual:        1555,    // Employee NI year to date
+  pensionPct:      4.03,    // Creative Pension Trust — £1,289.04 YTD ÷ gross
 };
 
 function PayInfoPanel({ pay, setPay }) {
@@ -1286,29 +1420,31 @@ function AddEntryModal({ label, onSave, onClose }) {
   );
 }
 
-function AccountHistoryModal({ account, onClose }) {
-  // Always sort newest first, normalise dates
+function AccountHistoryModal({ account, onClose, onEditEntry }) {
   const entries = sortEntriesDesc(account.entries).map(e => ({ ...e, date: fmtDate(e.iso) }));
   return h('div', { className:'modal-overlay', onClick:onClose },
-    h('div', { className:'modal', style:{width:580, maxHeight:'80vh', overflowY:'auto'}, onClick:e=>e.stopPropagation() },
+    h('div', { className:'modal', style:{width:600, maxHeight:'80vh', overflowY:'auto'}, onClick:e=>e.stopPropagation() },
       h('div', { className:'modal-title', style:{marginBottom:16} }, account.label + ' — Full History'),
       h('div', { className:'acc-table', style:{borderRadius:8} },
-        h('div', { className:'acc-thead' },
+        h('div', { className:'acc-thead', style:{gridTemplateColumns:'130px 1fr 1fr 1fr 36px'} },
           h('span',null,'Date'), h('span',null,'Balance'),
-          h('span',null,'Change £'), h('span',null,'Change %')
+          h('span',null,'Change £'), h('span',null,'Change %'), h('span',null,'')
         ),
         entries.map((entry,i) => {
           const prev = entries[i+1];
           const diff = prev ? entry.value - prev.value : null;
           const pct  = prev ? pctChange(entry.value, prev.value) : null;
           const pos  = diff!=null ? diff>=0 : null;
-          return h('div', { key:entry.iso, className:'acc-row' },
+          return h('div', { key:entry.iso+i, className:'acc-row',
+            style:{gridTemplateColumns:'130px 1fr 1fr 1fr 36px'} },
             h('span', { className:'date' }, entry.date),
             h('span', null, fmt(entry.value)),
             h('span', { className:diff==null?'dim':pos?'pos':'neg' },
               diff!=null?(pos?'+':'')+fmt(diff):'—'),
             h('span', { className:pct==null?'dim':pos?'pos':'neg' },
-              pct!=null?(pct>=0?'+':'')+pct.toFixed(2)+'%':'—')
+              pct!=null?(pct>=0?'+':'')+pct.toFixed(2)+'%':'—'),
+            h('button', { className:'acc-entry-edit',
+              onClick:()=>{ onEditEntry && onEditEntry(entry); } }, '✎')
           );
         })
       ),
@@ -1319,39 +1455,150 @@ function AccountHistoryModal({ account, onClose }) {
   );
 }
 
+const INIT_LINKS = [
+  { id:1, name:'Payslip Login', url:'https://login.brightsg.com/login.brightsg.com/B2C_1A_BPOL_EMPLOYEE_SIGNIN_PROD/oauth2/v2.0/authorize?p=B2C_1A_BPOL_EMPLOYEE_SIGNIN_PROD&client_id=903c3663-453f-408d-b8b8-b5fbcb53dd77&nonce=defaultNonce&redirect_uri=https%3A%2F%2Femployee.brightpay.com%2Flogin&scope=openid%20profile%20offline_access%20https%3A%2F%2Flogin.brightsg.com%2F456b7587-bc0e-4a1e-824e-756b078a2ade%2Fbrightpay.online.document.api%20https%3A%2F%2Flogin.brightsg.com%2F456b7587-bc0e-4a1e-824e-756b078a2ade%2Fbrightpay.online.employee.api&response_type=code&code_challenge=rApd0iAmU0FScec8z3actZIA_PeAO3hPwfA_Yy1sMGk&code_challenge_method=S256&response_mode=query' },
+];
+
+function LinksPanel() {
+  const [links, setLinks] = useState(INIT_LINKS);
+  const [editing, setEditing] = useState(null); // null | 'new' | link obj
+  const [dName, setDName] = useState('');
+  const [dUrl,  setDUrl]  = useState('');
+
+  function openEdit(link) {
+    setEditing(link || 'new');
+    setDName(link ? link.name : '');
+    setDUrl(link ? link.url : '');
+  }
+  function saveLink() {
+    if (!dName.trim() || !dUrl.trim()) return;
+    const url = dUrl.startsWith('http') ? dUrl : 'https://' + dUrl;
+    if (editing === 'new') {
+      setLinks(prev => [...prev, { id:Date.now(), name:dName.trim(), url }]);
+    } else {
+      setLinks(prev => prev.map(l => l.id===editing.id ? {...l,name:dName.trim(),url} : l));
+    }
+    setEditing(null);
+  }
+  function delLink(id) { setLinks(prev => prev.filter(l=>l.id!==id)); }
+
+  return h('div', { className:'links-panel' },
+    h('div', { className:'links-panel-head' },
+      h('span', { className:'links-panel-title' }, '🔗 Quick Links'),
+      h('button', { className:'hk-icon-btn', onClick:()=>openEdit(null) }, '+ Add')
+    ),
+    h('div', { className:'links-list' },
+      links.map(l => h('div', { key:l.id, className:'link-row' },
+        h('a', { href:l.url, target:'_blank', rel:'noopener', className:'link-anchor' }, l.name),
+        h('div', { className:'link-actions' },
+          h('button', { className:'hk-icon-btn', onClick:()=>openEdit(l) }, 'Edit'),
+          h('button', { className:'hk-icon-btn danger', onClick:()=>delLink(l.id) }, '×')
+        )
+      )),
+      links.length===0 && h('p',{style:{fontSize:12,color:'var(--text-dim)',padding:'6px 0'}},'No links yet')
+    ),
+    editing && h('div', { className:'modal-overlay', onClick:()=>setEditing(null) },
+      h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+        h('div', { className:'modal-title' }, editing==='new'?'Add Link':'Edit Link'),
+        h('div', { className:'form-row' },
+          h('label',{className:'form-label'},'Display name'),
+          h('input',{className:'form-input',value:dName,onChange:e=>setDName(e.target.value)})
+        ),
+        h('div', { className:'form-row' },
+          h('label',{className:'form-label'},'URL'),
+          h('input',{className:'form-input',value:dUrl,placeholder:'https://...',onChange:e=>setDUrl(e.target.value)})
+        ),
+        h('div',{className:'modal-actions'},
+          h('button',{className:'btn-cancel',onClick:()=>setEditing(null)},'Cancel'),
+          h('button',{className:'btn-save',onClick:saveLink},'Save')
+        )
+      )
+    )
+  );
+}
+
+function EditEntryModal({ entry, label, onSave, onDelete, onClose }) {
+  const [date,  setDate]  = useState(entry.iso);
+  const [value, setValue] = useState(String(entry.value));
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, 'Edit Entry — ' + label),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label',{className:'form-label'},'Date'),
+          h('input',{type:'date',className:'form-input',value:date,onChange:e=>setDate(e.target.value)})
+        ),
+        h('div', null,
+          h('label',{className:'form-label'},'Balance (£)'),
+          h('input',{type:'number',className:'form-input',value,onChange:e=>setValue(e.target.value)})
+        )
+      ),
+      h('div',{className:'modal-actions'},
+        h('button',{className:'btn-cancel',style:{color:'var(--red)',borderColor:'rgba(192,81,58,0.3)'},
+          onClick:()=>onDelete()},'Delete entry'),
+        h('button',{className:'btn-cancel',onClick:onClose},'Cancel'),
+        h('button',{className:'btn-save',onClick:()=>{
+          if(!date||isNaN(parseFloat(value))) return;
+          onSave({iso:date,date:fmtDate(date),value:parseFloat(value)});
+        }},'Save')
+      )
+    )
+  );
+}
+
 function AccountsPage({ pay, setPay, accounts, setAccounts }) {
   const [addingTo,   setAddingTo]  = useState(null);
-  const [historyFor, setHistoryFor]= useState(null); // account object | null
+  const [historyFor, setHistoryFor]= useState(null);
+  const [editEntry,  setEditEntry] = useState(null); // {label, entry}
 
   function addEntry(label, entry) {
     setAccounts(prev => prev.map(a => {
       if (a.label !== label) return a;
-      // Normalise all entries: regenerate date from iso, sort newest first
       const merged = [entry, ...a.entries].map(e => ({ ...e, date: fmtDate(e.iso) }));
       return { ...a, entries: sortEntriesDesc(merged) };
     }));
     setAddingTo(null);
   }
 
-  // Always use the first entry after sort (most recent)
+  function updateEntry(label, oldIso, newEntry) {
+    setAccounts(prev => prev.map(a => {
+      if (a.label !== label) return a;
+      const entries = a.entries
+        .map(e => e.iso === oldIso ? { ...newEntry, date: fmtDate(newEntry.iso) } : e);
+      return { ...a, entries: sortEntriesDesc(entries) };
+    }));
+    setEditEntry(null);
+  }
+
+  function deleteEntry(label, iso) {
+    setAccounts(prev => prev.map(a => {
+      if (a.label !== label) return a;
+      return { ...a, entries: a.entries.filter(e => e.iso !== iso) };
+    }));
+    setEditEntry(null);
+  }
+
   const safeAccounts = accounts.map(a => ({ ...a, entries: sortEntriesDesc(a.entries) }));
   const total = safeAccounts.reduce((s,a) => s + (a.entries[0]?.value || 0), 0);
 
   return h('div', { className:'page' },
-    h('div', { className:'section-header' },
-      h('h2', { className:'section-title' }, 'Financial Accounts'),
-      h('p', { className:'section-sub' }, 'Tracked balances · 3, 6 & 12 month performance · click card for full history')
+    h('div', { style:{display:'flex', alignItems:'flex-start', gap:20} },
+      h('div', { className:'section-header', style:{flex:1,marginBottom:0} },
+        h('h2', { className:'section-title' }, 'Financial Accounts'),
+        h('p', { className:'section-sub' }, 'Tracked balances · 3, 6 & 12 month performance · click card for full history')
+      ),
+      h(LinksPanel)
     ),
 
-    h('div', { className:'acc-cards' },
+    h('div', { className:'acc-cards', style:{marginTop:20} },
       safeAccounts.map(a => {
         const curr  = a.entries[0]?.value || 0;
         const e3m   = entryNMonthsAgo(a.entries, 3);
         const e6m   = entryNMonthsAgo(a.entries, 6);
         const e12m  = entryNMonthsAgo(a.entries, 12);
-        const p3  = e3m  && e3m.iso  !== a.entries[0].iso ? pctChange(curr, e3m.value)  : null;
-        const p6  = e6m  && e6m.iso  !== a.entries[0].iso ? pctChange(curr, e6m.value)  : null;
-        const p12 = e12m && e12m.iso !== a.entries[0].iso ? pctChange(curr, e12m.value) : null;
+        const p3  = e3m  && e3m.iso  !== a.entries[0]?.iso ? pctChange(curr, e3m.value)  : null;
+        const p6  = e6m  && e6m.iso  !== a.entries[0]?.iso ? pctChange(curr, e6m.value)  : null;
+        const p12 = e12m && e12m.iso !== a.entries[0]?.iso ? pctChange(curr, e12m.value) : null;
         const recent = a.entries.slice(0, 5);
         return h('div', { key:a.label, className:'acc-card acc-card-clickable', onClick:()=>setHistoryFor(a) },
           h('div', { className:'acc-card-name' }, a.label),
@@ -1366,11 +1613,13 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
               const prev = recent[i+1];
               const diff = prev ? e.value - prev.value : null;
               const pos  = diff != null ? diff >= 0 : null;
-              return h('div', { key:e.iso, className:'acc-mini-row' },
+              return h('div', { key:e.iso+i, className:'acc-mini-row' },
                 h('span', { className:'acc-mini-date' }, e.date),
                 h('span', { className:'acc-mini-val' }, fmt(e.value)),
                 diff != null && h('span', { className:'acc-mini-chg '+(pos?'pos':'neg') },
-                  (pos?'▲ ':'▼ ')+fmt(Math.abs(diff)))
+                  (pos?'▲ ':'▼ ')+fmt(Math.abs(diff))),
+                h('button', { className:'acc-entry-edit',
+                  onClick:ev=>{ ev.stopPropagation(); setEditEntry({label:a.label,entry:e}); } }, '✎')
               );
             })
           ),
@@ -1399,7 +1648,16 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
 
     historyFor && h(AccountHistoryModal, {
       account: historyFor,
-      onClose: () => setHistoryFor(null)
+      onClose: () => setHistoryFor(null),
+      onEditEntry: (entry) => { setHistoryFor(null); setEditEntry({label:historyFor.label,entry}); }
+    }),
+
+    editEntry && h(EditEntryModal, {
+      entry: editEntry.entry,
+      label: editEntry.label,
+      onSave: (newEntry) => updateEntry(editEntry.label, editEntry.entry.iso, newEntry),
+      onDelete: () => deleteEntry(editEntry.label, editEntry.entry.iso),
+      onClose: () => setEditEntry(null)
     })
   );
 }
@@ -1407,12 +1665,16 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
 // ── TRACKER PAGE ──────────────────────────────────────────────────────────────
 
 function TrackerItemModal({ item, onSave, onClose }) {
-  const [name,     setName]    = useState(item ? item.name     : '');
-  const [provider, setProv]    = useState(item ? item.provider : '');
+  const [name,     setName]    = useState(item ? item.name          : '');
+  const [provider, setProv]    = useState(item ? item.provider      : '');
   const [cost,     setCost]    = useState(item ? (item.cost != null ? String(item.cost) : '') : '');
-  const [lastDone, setLast]    = useState(item ? item.lastDone||'' : '');
-  const [renewal,  setRenewal] = useState(item ? item.renewal||''  : '');
-  const [notes,    setNotes]   = useState(item ? item.notes    : '');
+  const [lastDone, setLast]    = useState(item ? item.lastDone||''  : '');
+  const [renewal,  setRenewal] = useState(item ? item.renewal||''   : '');
+  const [notes,    setNotes]   = useState(item ? item.notes         : '');
+  const [linkName, setLinkName]= useState(item ? item.linkName||''  : '');
+  const [linkUrl,  setLinkUrl] = useState(item ? item.linkUrl||''   : '');
+  const [username, setUsername]= useState(item ? item.username||''  : '');
+  const [pwHint,   setPwHint]  = useState(item ? item.pwHint||''    : '');
 
   function save() {
     if (!name.trim()) return;
@@ -1423,11 +1685,15 @@ function TrackerItemModal({ item, onSave, onClose }) {
       lastDone: lastDone || null,
       renewal:  renewal  || null,
       notes:    notes.trim(),
+      linkName: linkName.trim(),
+      linkUrl:  linkUrl.trim(),
+      username: username.trim(),
+      pwHint:   pwHint.trim(),
     });
   }
 
   return h('div', { className:'modal-overlay', onClick:onClose },
-    h('div', { className:'modal', style:{width:500}, onClick:e=>e.stopPropagation() },
+    h('div', { className:'modal', style:{width:520}, onClick:e=>e.stopPropagation() },
       h('div', { className:'modal-title' }, item ? 'Edit Item' : 'Add Item'),
       h('div', { className:'form-row-2' },
         h('div', null,
@@ -1441,9 +1707,8 @@ function TrackerItemModal({ item, onSave, onClose }) {
       ),
       h('div', { className:'form-row-2' },
         h('div', null,
-          h('label', { className:'form-label' }, 'Cost (£, optional)'),
-          h('input', { type:'number', className:'form-input', value:cost, placeholder:'—',
-            onChange:e=>setCost(e.target.value) })
+          h('label', { className:'form-label' }, 'Cost (£)'),
+          h('input', { type:'number', className:'form-input', value:cost, placeholder:'—', onChange:e=>setCost(e.target.value) })
         ),
         h('div', null,
           h('label', { className:'form-label' }, 'Last done'),
@@ -1458,6 +1723,29 @@ function TrackerItemModal({ item, onSave, onClose }) {
         h('div', null,
           h('label', { className:'form-label' }, 'Notes'),
           h('input', { className:'form-input', value:notes, onChange:e=>setNotes(e.target.value) })
+        )
+      ),
+      h('div', { style:{borderTop:'1px solid var(--border-soft)',margin:'8px 0 16px',paddingTop:16} },
+        h('p', { style:{fontSize:11,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--text-dim)',marginBottom:12} }, 'Link & Credentials'),
+        h('div', { className:'form-row-2' },
+          h('div', null,
+            h('label', { className:'form-label' }, 'Link label'),
+            h('input', { className:'form-input', value:linkName, placeholder:'e.g. Renew online', onChange:e=>setLinkName(e.target.value) })
+          ),
+          h('div', null,
+            h('label', { className:'form-label' }, 'URL'),
+            h('input', { className:'form-input', value:linkUrl, placeholder:'https://...', onChange:e=>setLinkUrl(e.target.value) })
+          )
+        ),
+        h('div', { className:'form-row-2' },
+          h('div', null,
+            h('label', { className:'form-label' }, 'Username'),
+            h('input', { className:'form-input', value:username, onChange:e=>setUsername(e.target.value) })
+          ),
+          h('div', null,
+            h('label', { className:'form-label' }, '*****'),
+            h('input', { className:'form-input', value:pwHint, placeholder:'hint only — not stored securely', onChange:e=>setPwHint(e.target.value) })
+          )
         )
       ),
       h('div', { className:'modal-actions' },
@@ -1532,7 +1820,17 @@ function TrackerPage({ trackerItems, setTrackerItems }) {
             )
           ),
           st && h(Badge,{status:st,label:lbl}),
-          item.notes && h('div',{className:'tracker-notes'},item.notes)
+          item.notes && h('div',{className:'tracker-notes'},item.notes),
+          (item.linkUrl || item.username || item.pwHint) && h('div',{className:'tracker-creds'},
+            item.linkUrl && h('a',{
+              href: item.linkUrl.startsWith('http')?item.linkUrl:'https://'+item.linkUrl,
+              target:'_blank', rel:'noopener', className:'tracker-link'
+            }, item.linkName||'Open link'),
+            item.username && h('span',{className:'tracker-cred-item'},
+              h('span',{className:'tracker-cred-label'},'User: '),item.username),
+            item.pwHint && h('span',{className:'tracker-cred-item'},
+              h('span',{className:'tracker-cred-label'},'***** '),item.pwHint)
+          )
         );
       })
     ),
@@ -1669,6 +1967,173 @@ function HomeKeepingPage({ tasks, setTasks }) {
   );
 }
 
+
+// ── GARDEN PAGE ───────────────────────────────────────────────────────────────
+
+function GardenModal({ plant, onSave, onClose }) {
+  const [name,      setName]     = useState(plant ? plant.name      : '');
+  const [variety,   setVariety]  = useState(plant ? plant.variety   : '');
+  const [plantDate, setPlantDate]= useState(plant ? plant.plantDate||'' : '');
+  const [bloom,     setBloom]    = useState(plant ? plant.bloom     : '');
+  const [notes,     setNotes]    = useState(plant ? plant.notes     : '');
+
+  function save() {
+    if (!name.trim()) return;
+    onSave({ name:name.trim(), variety:variety.trim(), plantDate:plantDate||null,
+      bloom:bloom.trim(), notes:notes.trim(), skipYear:plant?plant.skipYear:false });
+  }
+
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, plant ? 'Edit Plant' : 'Add Plant'),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label', { className:'form-label' }, 'Plant name'),
+          h('input', { className:'form-input', value:name, placeholder:'e.g. Tulip',
+            onChange:e=>setName(e.target.value) })
+        ),
+        h('div', null,
+          h('label', { className:'form-label' }, 'Variety'),
+          h('input', { className:'form-input', value:variety, placeholder:'e.g. Queen of Night',
+            onChange:e=>setVariety(e.target.value) })
+        )
+      ),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label', { className:'form-label' }, 'Plant by date'),
+          h('input', { type:'date', className:'form-input', value:plantDate,
+            onChange:e=>setPlantDate(e.target.value) })
+        ),
+        h('div', null,
+          h('label', { className:'form-label' }, 'Expected bloom'),
+          h('input', { className:'form-input', value:bloom, placeholder:'e.g. April–May',
+            onChange:e=>setBloom(e.target.value) })
+        )
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Notes'),
+        h('input', { className:'form-input', value:notes,
+          onChange:e=>setNotes(e.target.value) })
+      ),
+      h('div', { className:'modal-actions' },
+        h('button', { className:'btn-cancel', onClick:onClose }, 'Cancel'),
+        h('button', { className:'btn-save', onClick:save }, plant ? 'Save' : 'Add Plant')
+      )
+    )
+  );
+}
+
+function GardenPage({ plants, setPlants }) {
+  const [modal, setModal] = useState(null); // null | 'add' | plant
+
+  function savePlant(data) {
+    if (modal === 'add') {
+      setPlants(prev => [...prev, { ...data, id:Date.now() }]);
+    } else {
+      setPlants(prev => prev.map(p => p.id===modal.id ? {...p,...data} : p));
+    }
+    setModal(null);
+  }
+  function del(id)      { setPlants(prev => prev.filter(p=>p.id!==id)); }
+  function skipYear(id) { setPlants(prev => prev.map(p=>p.id===id?{...p,skipYear:true}:p)); }
+  function unskip(id)   { setPlants(prev => prev.map(p=>p.id===id?{...p,skipYear:false}:p)); }
+
+  const now = new Date(); now.setHours(0,0,0,0);
+  function plantDays(p) {
+    if (!p.plantDate) return null;
+    const d = new Date(p.plantDate); d.setHours(0,0,0,0);
+    return Math.round((d - now) / 86400000);
+  }
+  function plantStatus(p) {
+    const d = plantDays(p);
+    if (d === null) return 'none';
+    if (d < 0)  return 'overdue';
+    if (d <= 7) return 'due-soon';
+    if (d <= 30) return 'ok';
+    return 'future';
+  }
+  function plantLabel(p) {
+    const d = plantDays(p);
+    if (d === null) return null;
+    if (d < 0)  return `Overdue ${Math.abs(d)}d`;
+    if (d === 0) return 'Plant today!';
+    return `Plant in ${d}d`;
+  }
+
+  // Sort: overdue first, then due-soon, then ok, then future, then skip
+  const ORDER = { overdue:0,'due-soon':1,ok:2,future:3,none:4 };
+  const sorted = [...plants].sort((a,b) => {
+    if (a.skipYear && !b.skipYear) return 1;
+    if (!a.skipYear && b.skipYear) return -1;
+    return (ORDER[plantStatus(a)]||5) - (ORDER[plantStatus(b)]||5);
+  });
+
+  return h('div', { className:'page' },
+    h('div', { className:'hk-toolbar' },
+      h('div', { className:'section-header', style:{marginBottom:0} },
+        h('h2', { className:'section-title' }, '🌿 Garden'),
+        h('p', { className:'section-sub' }, 'Plant reminders, bloom times, and seasonal tasks')
+      ),
+      h('button', { className:'hk-add-btn', onClick:()=>setModal('add') }, h('span',null,'+'), 'Add Plant')
+    ),
+
+    plants.length === 0 && h('div', { style:{color:'var(--text-dim)',padding:'20px 0',fontSize:14} },
+      'No plants yet — add your first one above.'
+    ),
+
+    h('div', { className:'garden-grid' },
+      sorted.map(p => {
+        const st  = plantStatus(p);
+        const lbl = plantLabel(p);
+        const days= plantDays(p);
+        return h('div', { key:p.id,
+          className:'garden-card'+(p.skipYear?' garden-skipped':'')
+            +(st==='overdue'?' garden-overdue':st==='due-soon'?' garden-soon':'')
+        },
+          h('div', { className:'garden-card-top' },
+            h('div', null,
+              h('div', { className:'garden-card-name' },
+                p.skipYear && h('span',{style:{fontSize:11,color:'var(--text-dim)',marginRight:6}},'[skipped]'),
+                p.name
+              ),
+              p.variety && h('div', { className:'garden-card-variety' }, p.variety)
+            ),
+            h('div', { className:'garden-card-actions' },
+              h('button', { className:'hk-icon-btn', onClick:()=>setModal(p) }, 'Edit'),
+              h('button', { className:'hk-icon-btn danger', onClick:()=>del(p.id) }, '×')
+            )
+          ),
+          h('div', { className:'garden-card-meta' },
+            p.plantDate && h('div', null,
+              h('span', { className:'garden-meta-lbl' }, 'Plant by'),
+              h('span', { className:'garden-meta-val' }, fmtDate(p.plantDate))
+            ),
+            p.bloom && h('div', null,
+              h('span', { className:'garden-meta-lbl' }, 'Blooms'),
+              h('span', { className:'garden-meta-val' }, p.bloom)
+            )
+          ),
+          p.notes && h('div', { className:'tracker-notes' }, p.notes),
+          h('div', { className:'garden-card-footer' },
+            lbl && !p.skipYear && h(Badge, { status:st==='future'?'ok':st, label:lbl }),
+            !p.skipYear
+              ? h('button', { className:'hk-icon-btn', style:{fontSize:11},
+                  onClick:()=>skipYear(p.id) }, 'Skip this year →')
+              : h('button', { className:'hk-icon-btn', style:{fontSize:11},
+                  onClick:()=>unskip(p.id) }, '↩ Restore')
+          )
+        );
+      })
+    ),
+
+    modal && h(GardenModal, {
+      plant:   modal === 'add' ? null : modal,
+      onSave:  savePlant,
+      onClose: ()=>setModal(null)
+    })
+  );
+}
+
 // ── PROXY URL ─────────────────────────────────────────────────────────────────
 const PROXY = '/.netlify/functions/proxy';
 
@@ -1723,6 +2188,7 @@ function App() {
   const [pay,      setPay]      = useState(INIT_PAY);
   const [accounts, setAccounts] = useState(INIT_ACCOUNTS);
   const [tracker,  setTracker]  = useState(TRACKER_ITEMS.map((t,i)=>({...t,id:i+1})));
+  const [gardenPlants, setGardenPlants] = useState([]);
 
   // ── Load on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -1825,11 +2291,12 @@ function App() {
   return h('div', null,
     h(Nav, { tab, setTab }),
     h(SaveBar, { status: saveStatus }),
-    tab==='Home'         && h(HomePage,        { hkTasks, note, setNote: setAndSaveNote }),
+    tab==='Home'         && h(HomePage,        { hkTasks, note, setNote:setAndSaveNote, gardenPlants }),
     tab==='Budget'       && h(BudgetPage,      { deposits, setDeposits:wrapDeposits, bills, setBills:wrapBills, joint, setJoint:wrapJoint, personal, setPersonal:wrapPersonal, pay }),
     tab==='Accounts'     && h(AccountsPage,    { pay, setPay:setAndSavePay, accounts, setAccounts:setAndSaveAccounts }),
     tab==='Tracker'      && h(TrackerPage,     { trackerItems:tracker, setTrackerItems:setAndSaveTracker }),
-    tab==='Home Keeping' && h(HomeKeepingPage, { tasks:hkTasks, setTasks:setAndSaveHK })
+    tab==='Home Keeping' && h(HomeKeepingPage, { tasks:hkTasks, setTasks:setAndSaveHK }),
+    tab==='Garden'       && h(GardenPage,      { plants:gardenPlants, setPlants:setGardenPlants })
   );
 }
 
