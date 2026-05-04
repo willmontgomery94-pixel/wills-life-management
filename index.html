@@ -736,8 +736,17 @@ function fmt(n) {
   return '£' + n.toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 });
 }
 function fmtDate(str) {
-  if (!str) return '—';
-  return new Date(str).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  if (!str || str === 'null' || str === '') return '—';
+  // Always parse from ISO YYYY-MM-DD to avoid timezone shifts
+  const parts = String(str).substring(0,10).split('-');
+  if (parts.length !== 3) return str;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return parseInt(parts[2]) + ' ' + months[parseInt(parts[1])-1] + ' ' + parts[0];
+}
+
+// Canonical sort: newest first by ISO string
+function sortEntriesDesc(entries) {
+  return [...entries].sort((a,b) => b.iso.localeCompare(a.iso));
 }
 function daysBetween(str) {
   if (!str) return null;
@@ -1251,9 +1260,7 @@ function AddEntryModal({ label, onSave, onClose }) {
   function save() {
     const v = parseFloat(value);
     if (!date || isNaN(v)) return;
-    const d = new Date(date);
-    const pretty = d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
-    onSave({ iso: date, date: pretty, value: v });
+    onSave({ iso: date, date: fmtDate(date), value: v });
   }
   return h('div', { className:'modal-overlay', onClick:onClose },
     h('div', { className:'modal', onClick:e=>e.stopPropagation() },
@@ -1280,6 +1287,8 @@ function AddEntryModal({ label, onSave, onClose }) {
 }
 
 function AccountHistoryModal({ account, onClose }) {
+  // Always sort newest first, normalise dates
+  const entries = sortEntriesDesc(account.entries).map(e => ({ ...e, date: fmtDate(e.iso) }));
   return h('div', { className:'modal-overlay', onClick:onClose },
     h('div', { className:'modal', style:{width:580, maxHeight:'80vh', overflowY:'auto'}, onClick:e=>e.stopPropagation() },
       h('div', { className:'modal-title', style:{marginBottom:16} }, account.label + ' — Full History'),
@@ -1288,8 +1297,8 @@ function AccountHistoryModal({ account, onClose }) {
           h('span',null,'Date'), h('span',null,'Balance'),
           h('span',null,'Change £'), h('span',null,'Change %')
         ),
-        account.entries.map((entry,i) => {
-          const prev = account.entries[i+1];
+        entries.map((entry,i) => {
+          const prev = entries[i+1];
           const diff = prev ? entry.value - prev.value : null;
           const pct  = prev ? pctChange(entry.value, prev.value) : null;
           const pos  = diff!=null ? diff>=0 : null;
@@ -1317,13 +1326,16 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
   function addEntry(label, entry) {
     setAccounts(prev => prev.map(a => {
       if (a.label !== label) return a;
-      const entries = [entry, ...a.entries].sort((x,y) => y.iso.localeCompare(x.iso));
-      return { ...a, entries };
+      // Normalise all entries: regenerate date from iso, sort newest first
+      const merged = [entry, ...a.entries].map(e => ({ ...e, date: fmtDate(e.iso) }));
+      return { ...a, entries: sortEntriesDesc(merged) };
     }));
     setAddingTo(null);
   }
 
-  const total = accounts.reduce((s,a) => s + a.entries[0].value, 0);
+  // Always use the first entry after sort (most recent)
+  const safeAccounts = accounts.map(a => ({ ...a, entries: sortEntriesDesc(a.entries) }));
+  const total = safeAccounts.reduce((s,a) => s + (a.entries[0]?.value || 0), 0);
 
   return h('div', { className:'page' },
     h('div', { className:'section-header' },
@@ -1332,8 +1344,8 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
     ),
 
     h('div', { className:'acc-cards' },
-      accounts.map(a => {
-        const curr  = a.entries[0].value;
+      safeAccounts.map(a => {
+        const curr  = a.entries[0]?.value || 0;
         const e3m   = entryNMonthsAgo(a.entries, 3);
         const e6m   = entryNMonthsAgo(a.entries, 6);
         const e12m  = entryNMonthsAgo(a.entries, 12);
@@ -1733,9 +1745,17 @@ function App() {
       if (d.homeKeeping && d.homeKeeping.length) setHkTasks(d.homeKeeping);
       if (d.note !== undefined) setNote(d.note);
 
-      // Accounts: if sheet is empty, seed from INIT_ACCOUNTS and save
+      // Accounts: normalise all dates on load, sort newest first
       if (d.accounts && d.accounts.some(a => a.entries.length > 0)) {
-        setAccounts(d.accounts);
+        const normalised = d.accounts.map(a => ({
+          ...a,
+          entries: sortEntriesDesc(
+            a.entries
+              .filter(e => e.iso && e.iso !== '')
+              .map(e => ({ ...e, iso: e.iso.substring(0,10), date: fmtDate(e.iso) }))
+          )
+        }));
+        setAccounts(normalised);
       } else {
         // First run — seed the sheet with hardcoded history
         setAccounts(INIT_ACCOUNTS);
