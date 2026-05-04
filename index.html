@@ -522,8 +522,7 @@
     /* ── LINKS PANEL ── */
     .links-panel {
       background: var(--surface); border: 1px solid var(--border-soft);
-      border-radius: var(--radius-lg); padding: 16px 20px;
-      min-width: 220px; max-width: 280px; flex-shrink: 0;
+      border-radius: var(--radius-lg); padding: 18px 22px;
     }
     .links-panel-head {
       display: flex; justify-content: space-between; align-items: center;
@@ -542,6 +541,10 @@
     }
     .link-anchor:hover { text-decoration: underline; }
     .link-actions { display: flex; gap: 4px; flex-shrink: 0; margin-left: 8px; }
+    .link-row-main { flex:1; min-width:0; }
+    .link-meta { display:flex; gap:12px; margin-top:3px; flex-wrap:wrap; }
+    .link-meta-item { font-size:11px; color:var(--text-muted); }
+    .link-meta-lbl  { color:var(--text-dim); }
 
     /* ── ACC ENTRY EDIT BUTTON ── */
     .acc-entry-edit {
@@ -1466,25 +1469,29 @@ const INIT_LINKS = [
   { id:1, name:'Payslip Login', url:'https://login.brightsg.com/login.brightsg.com/B2C_1A_BPOL_EMPLOYEE_SIGNIN_PROD/oauth2/v2.0/authorize?p=B2C_1A_BPOL_EMPLOYEE_SIGNIN_PROD&client_id=903c3663-453f-408d-b8b8-b5fbcb53dd77&nonce=defaultNonce&redirect_uri=https%3A%2F%2Femployee.brightpay.com%2Flogin&scope=openid%20profile%20offline_access%20https%3A%2F%2Flogin.brightsg.com%2F456b7587-bc0e-4a1e-824e-756b078a2ade%2Fbrightpay.online.document.api%20https%3A%2F%2Flogin.brightsg.com%2F456b7587-bc0e-4a1e-824e-756b078a2ade%2Fbrightpay.online.employee.api&response_type=code&code_challenge=rApd0iAmU0FScec8z3actZIA_PeAO3hPwfA_Yy1sMGk&code_challenge_method=S256&response_mode=query' },
 ];
 
-function LinksPanel({ onEditRequest }) {
-  const [links, setLinks] = useState(INIT_LINKS);
-
-  function delLink(id) { setLinks(prev => prev.filter(l=>l.id!==id)); }
-
+function LinksPanel({ links, onAdd, onEdit, onDelete }) {
   return h('div', { className:'links-panel' },
     h('div', { className:'links-panel-head' },
       h('span', { className:'links-panel-title' }, '🔗 Quick Links'),
-      h('button', { className:'hk-icon-btn', onClick:()=>onEditRequest('new', null, setLinks) }, '+ Add')
+      h('button', { className:'hk-icon-btn', onClick:onAdd }, '+ Add')
     ),
+    links.length === 0 && h('p',{style:{fontSize:12,color:'var(--text-dim)',padding:'6px 0'}},'No links yet — add one above'),
     h('div', { className:'links-list' },
       links.map(l => h('div', { key:l.id, className:'link-row' },
-        h('a', { href:l.url, target:'_blank', rel:'noopener', className:'link-anchor' }, l.name),
+        h('div', { className:'link-row-main' },
+          h('a', { href:l.url, target:'_blank', rel:'noopener', className:'link-anchor' }, l.name),
+          h('div', { className:'link-meta' },
+            l.username && h('span', { className:'link-meta-item' },
+              h('span',{className:'link-meta-lbl'},'User: '), l.username),
+            l.hint && h('span', { className:'link-meta-item' },
+              h('span',{className:'link-meta-lbl'},'Hint: '), l.hint)
+          )
+        ),
         h('div', { className:'link-actions' },
-          h('button', { className:'hk-icon-btn', onClick:()=>onEditRequest('edit', l, setLinks) }, 'Edit'),
-          h('button', { className:'hk-icon-btn danger', onClick:()=>delLink(l.id) }, '×')
+          h('button', { className:'hk-icon-btn', onClick:()=>onEdit(l) }, 'Edit'),
+          h('button', { className:'hk-icon-btn danger', onClick:()=>onDelete(l.id) }, '×')
         )
-      )),
-      links.length===0 && h('p',{style:{fontSize:12,color:'var(--text-dim)',padding:'6px 0'}},'No links yet')
+      ))
     )
   );
 }
@@ -1518,10 +1525,10 @@ function EditEntryModal({ entry, label, onSave, onDelete, onClose }) {
   );
 }
 
-function AccountsPage({ pay, setPay, accounts, setAccounts }) {
+function AccountsPage({ pay, setPay, accounts, setAccounts, links, setLinks }) {
   const [addingTo,   setAddingTo]  = useState(null);
   const [historyFor, setHistoryFor]= useState(null);
-  const [editEntry,  setEditEntry] = useState(null); // {label, entry}
+  const [editEntry,  setEditEntry] = useState(null);
 
   function addEntry(label, entry) {
     setAccounts(prev => prev.map(a => {
@@ -1553,38 +1560,36 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
   const safeAccounts = accounts.map(a => ({ ...a, entries: sortEntriesDesc(a.entries) }));
   const total = safeAccounts.reduce((s,a) => s + (a.entries[0]?.value || 0), 0);
 
-  const [linkModal,  setLinkModal]  = useState(null); // null | {mode:'new'|'edit', link, setLinks}
-  const [linkDName,  setLinkDName]  = useState('');
-  const [linkDUrl,   setLinkDUrl]   = useState('');
-  const [linkSetFn,  setLinkSetFn]  = useState(null);
+  const [linkModal, setLinkModal] = useState(null); // null | 'new' | link-obj
+  const [lName,  setLName]  = useState('');
+  const [lUrl,   setLUrl]   = useState('');
+  const [lUser,  setLUser]  = useState('');
+  const [lHint,  setLHint]  = useState('');
 
-  function openLinkEdit(mode, link, setLinksFn) {
-    setLinkModal({ mode, link });
-    setLinkDName(link ? link.name : '');
-    setLinkDUrl(link ? link.url : '');
-    // Store setter ref
-    setLinkSetFn(() => setLinksFn);
+  function openLinkModal(link) {
+    setLinkModal(link || 'new');
+    setLName(link ? link.name     : '');
+    setLUrl( link ? link.url      : '');
+    setLUser(link ? link.username||'' : '');
+    setLHint(link ? link.hint||''    : '');
   }
   function saveLinkModal() {
-    if (!linkDName.trim() || !linkDUrl.trim()) return;
-    const url = linkDUrl.startsWith('http') ? linkDUrl : 'https://' + linkDUrl;
-    if (linkSetFn) {
-      if (linkModal.mode === 'new') {
-        linkSetFn(prev => [...prev, { id:Date.now(), name:linkDName.trim(), url }]);
-      } else {
-        linkSetFn(prev => prev.map(l => l.id===linkModal.link.id ? {...l,name:linkDName.trim(),url} : l));
-      }
+    if (!lName.trim() || !lUrl.trim()) return;
+    const url = lUrl.startsWith('http') ? lUrl : 'https://' + lUrl;
+    const entry = { name:lName.trim(), url, username:lUser.trim(), hint:lHint.trim() };
+    if (linkModal === 'new') {
+      setLinks(prev => [...prev, { id:Date.now(), ...entry }]);
+    } else {
+      setLinks(prev => prev.map(l => l.id===linkModal.id ? {...l,...entry} : l));
     }
     setLinkModal(null);
   }
+  function deleteLink(id) { setLinks(prev => prev.filter(l=>l.id!==id)); }
 
   return h('div', { className:'page' },
-    h('div', { style:{display:'flex', alignItems:'flex-start', gap:20} },
-      h('div', { className:'section-header', style:{flex:1,marginBottom:0} },
-        h('h2', { className:'section-title' }, 'Financial Accounts'),
-        h('p', { className:'section-sub' }, 'Tracked balances · 3, 6 & 12 month performance · click card for full history')
-      ),
-      h(LinksPanel, { onEditRequest: openLinkEdit })
+    h('div', { className:'section-header' },
+      h('h2', { className:'section-title' }, 'Financial Accounts'),
+      h('p', { className:'section-sub' }, 'Tracked balances · 3, 6 & 12 month performance · click card for full history')
     ),
 
     h('div', { className:'acc-cards', style:{marginTop:20} },
@@ -1657,20 +1662,38 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
       onClose: () => setEditEntry(null)
     }),
 
+    h('div', { style:{marginTop:24} },
+      h(LinksPanel, {
+        links,
+        onAdd:    ()=>openLinkModal(null),
+        onEdit:   (l)=>openLinkModal(l),
+        onDelete: deleteLink,
+      })
+    ),
+
     linkModal && h('div', { className:'modal-overlay', onClick:()=>setLinkModal(null) },
       h('div', { className:'modal', onClick:e=>e.stopPropagation() },
-        h('div', { className:'modal-title' }, linkModal.mode==='new'?'Add Link':'Edit Link'),
+        h('div', { className:'modal-title' }, linkModal==='new'?'Add Link':'Edit Link'),
         h('div', { className:'form-row' },
           h('label',{className:'form-label'},'Display name'),
-          h('input',{className:'form-input', autoFocus:true, value:linkDName,
-            onChange:e=>setLinkDName(e.target.value),
-            onKeyDown:e=>e.key==='Enter'&&saveLinkModal()})
+          h('input',{className:'form-input',autoFocus:true,value:lName,
+            onChange:e=>setLName(e.target.value)})
         ),
         h('div', { className:'form-row' },
           h('label',{className:'form-label'},'URL'),
-          h('input',{className:'form-input',value:linkDUrl,placeholder:'https://...',
-            onChange:e=>setLinkDUrl(e.target.value),
-            onKeyDown:e=>e.key==='Enter'&&saveLinkModal()})
+          h('input',{className:'form-input',value:lUrl,placeholder:'https://...',
+            onChange:e=>setLUrl(e.target.value)})
+        ),
+        h('div', { className:'form-row-2' },
+          h('div',null,
+            h('label',{className:'form-label'},'Username'),
+            h('input',{className:'form-input',value:lUser,onChange:e=>setLUser(e.target.value)})
+          ),
+          h('div',null,
+            h('label',{className:'form-label'},'Hint'),
+            h('input',{className:'form-input',value:lHint,placeholder:'password hint…',
+              onChange:e=>setLHint(e.target.value)})
+          )
         ),
         h('div',{className:'modal-actions'},
           h('button',{className:'btn-cancel',onClick:()=>setLinkModal(null)},'Cancel'),
@@ -2208,6 +2231,7 @@ function App() {
   const [accounts, setAccounts] = useState(INIT_ACCOUNTS);
   const [tracker,  setTracker]  = useState(TRACKER_ITEMS.map((t,i)=>({...t,id:i+1})));
   const [gardenPlants, setGardenPlants] = useState([]);
+  const [links,        setLinks]        = useState(INIT_LINKS);
 
   // ── Load on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -2229,6 +2253,7 @@ function App() {
       }
       if (d.homeKeeping && d.homeKeeping.length) setHkTasks(d.homeKeeping);
       if (d.garden && d.garden.length) setGardenPlants(d.garden);
+      if (d.links  && d.links.length)  setLinks(d.links);
       if (d.note !== undefined) setNote(d.note);
 
       // Accounts: clean any remaining bad dates client-side, sort newest first
@@ -2268,7 +2293,8 @@ function App() {
   // ── Wrapped setters that auto-save ───────────────────────────────
   function setAndSavePay(v)          { setPay(v);          save('pay', v); }
   function setAndSaveGarden(v)       { setGardenPlants(v); save('garden', typeof v==='function'?v(gardenPlants):v); }
-  function setAndSaveNote(v)     { setNote(v);     save('note', v); }
+  function setAndSaveNote(v)      { setNote(v);      save('note', v); }
+  function setAndSaveLinks(v)     { setLinks(v);     save('links', typeof v==='function'?v(links):v); }
   function setAndSaveHK(v)       { setHkTasks(v);  save('homeKeeping', typeof v === 'function' ? v(hkTasks) : v); }
   function setAndSaveTracker(v)  { setTracker(v);  save('tracker', typeof v === 'function' ? v(tracker) : v); }
   function setAndSaveAccounts(v) { setAccounts(v); save('accounts', typeof v === 'function' ? v(accounts) : v); }
@@ -2314,7 +2340,7 @@ function App() {
     h(SaveBar, { status: saveStatus }),
     tab==='Home'         && h(HomePage,        { hkTasks, note, setNote:setAndSaveNote, gardenPlants }),
     tab==='Budget'       && h(BudgetPage,      { deposits, setDeposits:wrapDeposits, bills, setBills:wrapBills, joint, setJoint:wrapJoint, personal, setPersonal:wrapPersonal, pay }),
-    tab==='Accounts'     && h(AccountsPage,    { pay, setPay:setAndSavePay, accounts, setAccounts:setAndSaveAccounts }),
+    tab==='Accounts'     && h(AccountsPage,    { pay, setPay:setAndSavePay, accounts, setAccounts:setAndSaveAccounts, links, setLinks:setAndSaveLinks }),
     tab==='Tracker'      && h(TrackerPage,     { trackerItems:tracker, setTrackerItems:setAndSaveTracker }),
     tab==='Home Keeping' && h(HomeKeepingPage, { tasks:hkTasks, setTasks:setAndSaveHK }),
     tab==='Garden'       && h(GardenPage,      { plants:gardenPlants, setPlants:setAndSaveGarden })
