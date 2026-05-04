@@ -750,6 +750,19 @@ function pctChange(curr, prev) {
 }
 function sumAmt(arr) { return arr.reduce((s,x) => s + Number(x.amount), 0); }
 
+// Clean dates that may come back from Sheets as full Date strings or already ISO
+function cleanDate(val) {
+  if (!val || val === 'null' || val === '') return null;
+  // Already ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(val))) return String(val);
+  // Try to parse and reformat
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString().split('T')[0];
+  } catch(e) { return null; }
+}
+
 // Task helpers — nextDue overrides calculated date if set
 function taskEffectiveDue(t) {
   // nextDue pin takes priority only if it's in the future relative to the calculated date
@@ -1708,10 +1721,27 @@ function App() {
       if (d.bills    && d.bills.length)    setBills(d.bills);
       if (d.joint    && d.joint.length)    setJoint(d.joint);
       if (d.personal && d.personal.length) setPersonal(d.personal);
-      if (d.accounts && d.accounts.some(a=>a.entries.length)) setAccounts(d.accounts);
-      if (d.tracker  && d.tracker.length)  setTracker(d.tracker);
+      if (d.tracker  && d.tracker.length)  {
+        // Clean up any badly-formatted dates from sheet
+        const cleaned = d.tracker.map(t => ({
+          ...t,
+          lastDone: cleanDate(t.lastDone),
+          renewal:  cleanDate(t.renewal),
+        }));
+        setTracker(cleaned);
+      }
       if (d.homeKeeping && d.homeKeeping.length) setHkTasks(d.homeKeeping);
       if (d.note !== undefined) setNote(d.note);
+
+      // Accounts: if sheet is empty, seed from INIT_ACCOUNTS and save
+      if (d.accounts && d.accounts.some(a => a.entries.length > 0)) {
+        setAccounts(d.accounts);
+      } else {
+        // First run — seed the sheet with hardcoded history
+        setAccounts(INIT_ACCOUNTS);
+        saveSection('accounts', INIT_ACCOUNTS);
+      }
+
       setLoading(false);
     });
   }, []);
