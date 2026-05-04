@@ -1745,19 +1745,24 @@ function App() {
       if (d.homeKeeping && d.homeKeeping.length) setHkTasks(d.homeKeeping);
       if (d.note !== undefined) setNote(d.note);
 
-      // Accounts: normalise all dates on load, sort newest first
+      // Accounts: clean any remaining bad dates client-side, sort newest first
       if (d.accounts && d.accounts.some(a => a.entries.length > 0)) {
         const normalised = d.accounts.map(a => ({
           ...a,
           entries: sortEntriesDesc(
             a.entries
-              .filter(e => e.iso && e.iso !== '')
-              .map(e => ({ ...e, iso: e.iso.substring(0,10), date: fmtDate(e.iso) }))
+              .map(e => {
+                const iso = cleanDate(e.iso) || cleanDate(e.date) || '';
+                return { ...e, iso, date: iso ? fmtDate(iso) : '—' };
+              })
+              .filter(e => e.iso !== '')
           )
         }));
         setAccounts(normalised);
+        // Write cleaned data back so sheet is clean permanently
+        saveSection('accounts', normalised);
       } else {
-        // First run — seed the sheet with hardcoded history
+        // First run — seed from hardcoded history
         setAccounts(INIT_ACCOUNTS);
         saveSection('accounts', INIT_ACCOUNTS);
       }
