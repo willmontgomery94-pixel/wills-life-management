@@ -1466,60 +1466,25 @@ const INIT_LINKS = [
   { id:1, name:'Payslip Login', url:'https://login.brightsg.com/login.brightsg.com/B2C_1A_BPOL_EMPLOYEE_SIGNIN_PROD/oauth2/v2.0/authorize?p=B2C_1A_BPOL_EMPLOYEE_SIGNIN_PROD&client_id=903c3663-453f-408d-b8b8-b5fbcb53dd77&nonce=defaultNonce&redirect_uri=https%3A%2F%2Femployee.brightpay.com%2Flogin&scope=openid%20profile%20offline_access%20https%3A%2F%2Flogin.brightsg.com%2F456b7587-bc0e-4a1e-824e-756b078a2ade%2Fbrightpay.online.document.api%20https%3A%2F%2Flogin.brightsg.com%2F456b7587-bc0e-4a1e-824e-756b078a2ade%2Fbrightpay.online.employee.api&response_type=code&code_challenge=rApd0iAmU0FScec8z3actZIA_PeAO3hPwfA_Yy1sMGk&code_challenge_method=S256&response_mode=query' },
 ];
 
-function LinksPanel() {
+function LinksPanel({ onEditRequest }) {
   const [links, setLinks] = useState(INIT_LINKS);
-  const [editing, setEditing] = useState(null); // null | 'new' | link obj
-  const [dName, setDName] = useState('');
-  const [dUrl,  setDUrl]  = useState('');
 
-  function openEdit(link) {
-    setEditing(link || 'new');
-    setDName(link ? link.name : '');
-    setDUrl(link ? link.url : '');
-  }
-  function saveLink() {
-    if (!dName.trim() || !dUrl.trim()) return;
-    const url = dUrl.startsWith('http') ? dUrl : 'https://' + dUrl;
-    if (editing === 'new') {
-      setLinks(prev => [...prev, { id:Date.now(), name:dName.trim(), url }]);
-    } else {
-      setLinks(prev => prev.map(l => l.id===editing.id ? {...l,name:dName.trim(),url} : l));
-    }
-    setEditing(null);
-  }
   function delLink(id) { setLinks(prev => prev.filter(l=>l.id!==id)); }
 
   return h('div', { className:'links-panel' },
     h('div', { className:'links-panel-head' },
       h('span', { className:'links-panel-title' }, '🔗 Quick Links'),
-      h('button', { className:'hk-icon-btn', onClick:()=>openEdit(null) }, '+ Add')
+      h('button', { className:'hk-icon-btn', onClick:()=>onEditRequest('new', null, setLinks) }, '+ Add')
     ),
     h('div', { className:'links-list' },
       links.map(l => h('div', { key:l.id, className:'link-row' },
         h('a', { href:l.url, target:'_blank', rel:'noopener', className:'link-anchor' }, l.name),
         h('div', { className:'link-actions' },
-          h('button', { className:'hk-icon-btn', onClick:()=>openEdit(l) }, 'Edit'),
+          h('button', { className:'hk-icon-btn', onClick:()=>onEditRequest('edit', l, setLinks) }, 'Edit'),
           h('button', { className:'hk-icon-btn danger', onClick:()=>delLink(l.id) }, '×')
         )
       )),
       links.length===0 && h('p',{style:{fontSize:12,color:'var(--text-dim)',padding:'6px 0'}},'No links yet')
-    ),
-    editing && h('div', { className:'modal-overlay', onClick:()=>setEditing(null) },
-      h('div', { className:'modal', onClick:e=>e.stopPropagation() },
-        h('div', { className:'modal-title' }, editing==='new'?'Add Link':'Edit Link'),
-        h('div', { className:'form-row' },
-          h('label',{className:'form-label'},'Display name'),
-          h('input',{className:'form-input',value:dName,onChange:e=>setDName(e.target.value)})
-        ),
-        h('div', { className:'form-row' },
-          h('label',{className:'form-label'},'URL'),
-          h('input',{className:'form-input',value:dUrl,placeholder:'https://...',onChange:e=>setDUrl(e.target.value)})
-        ),
-        h('div',{className:'modal-actions'},
-          h('button',{className:'btn-cancel',onClick:()=>setEditing(null)},'Cancel'),
-          h('button',{className:'btn-save',onClick:saveLink},'Save')
-        )
-      )
     )
   );
 }
@@ -1588,13 +1553,38 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
   const safeAccounts = accounts.map(a => ({ ...a, entries: sortEntriesDesc(a.entries) }));
   const total = safeAccounts.reduce((s,a) => s + (a.entries[0]?.value || 0), 0);
 
+  const [linkModal,  setLinkModal]  = useState(null); // null | {mode:'new'|'edit', link, setLinks}
+  const [linkDName,  setLinkDName]  = useState('');
+  const [linkDUrl,   setLinkDUrl]   = useState('');
+  const [linkSetFn,  setLinkSetFn]  = useState(null);
+
+  function openLinkEdit(mode, link, setLinksFn) {
+    setLinkModal({ mode, link });
+    setLinkDName(link ? link.name : '');
+    setLinkDUrl(link ? link.url : '');
+    // Store setter ref
+    setLinkSetFn(() => setLinksFn);
+  }
+  function saveLinkModal() {
+    if (!linkDName.trim() || !linkDUrl.trim()) return;
+    const url = linkDUrl.startsWith('http') ? linkDUrl : 'https://' + linkDUrl;
+    if (linkSetFn) {
+      if (linkModal.mode === 'new') {
+        linkSetFn(prev => [...prev, { id:Date.now(), name:linkDName.trim(), url }]);
+      } else {
+        linkSetFn(prev => prev.map(l => l.id===linkModal.link.id ? {...l,name:linkDName.trim(),url} : l));
+      }
+    }
+    setLinkModal(null);
+  }
+
   return h('div', { className:'page' },
     h('div', { style:{display:'flex', alignItems:'flex-start', gap:20} },
       h('div', { className:'section-header', style:{flex:1,marginBottom:0} },
         h('h2', { className:'section-title' }, 'Financial Accounts'),
         h('p', { className:'section-sub' }, 'Tracked balances · 3, 6 & 12 month performance · click card for full history')
       ),
-      h(LinksPanel)
+      h(LinksPanel, { onEditRequest: openLinkEdit })
     ),
 
     h('div', { className:'acc-cards', style:{marginTop:20} },
@@ -1665,7 +1655,29 @@ function AccountsPage({ pay, setPay, accounts, setAccounts }) {
       onSave: (newEntry) => updateEntry(editEntry.label, editEntry.entry.iso, newEntry),
       onDelete: () => deleteEntry(editEntry.label, editEntry.entry.iso),
       onClose: () => setEditEntry(null)
-    })
+    }),
+
+    linkModal && h('div', { className:'modal-overlay', onClick:()=>setLinkModal(null) },
+      h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+        h('div', { className:'modal-title' }, linkModal.mode==='new'?'Add Link':'Edit Link'),
+        h('div', { className:'form-row' },
+          h('label',{className:'form-label'},'Display name'),
+          h('input',{className:'form-input', autoFocus:true, value:linkDName,
+            onChange:e=>setLinkDName(e.target.value),
+            onKeyDown:e=>e.key==='Enter'&&saveLinkModal()})
+        ),
+        h('div', { className:'form-row' },
+          h('label',{className:'form-label'},'URL'),
+          h('input',{className:'form-input',value:linkDUrl,placeholder:'https://...',
+            onChange:e=>setLinkDUrl(e.target.value),
+            onKeyDown:e=>e.key==='Enter'&&saveLinkModal()})
+        ),
+        h('div',{className:'modal-actions'},
+          h('button',{className:'btn-cancel',onClick:()=>setLinkModal(null)},'Cancel'),
+          h('button',{className:'btn-save',onClick:saveLinkModal},'Save')
+        )
+      )
+    )
   );
 }
 
