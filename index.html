@@ -627,7 +627,7 @@
 <body>
 <div id="root"></div>
 <script>
-const { createElement: h, useState } = React;
+const { createElement: h, useState, useEffect } = React;
 
 // ── COLOUR PALETTE FOR EXPENSE ROWS ──────────────────────────────────────────
 const EXP_COLORS = [
@@ -1297,8 +1297,7 @@ function AccountHistoryModal({ account, onClose }) {
   );
 }
 
-function AccountsPage({ pay, setPay }) {
-  const [accounts,   setAccounts]  = useState(INIT_ACCOUNTS);
+function AccountsPage({ pay, setPay, accounts, setAccounts }) {
   const [addingTo,   setAddingTo]  = useState(null);
   const [historyFor, setHistoryFor]= useState(null); // account object | null
 
@@ -1444,9 +1443,15 @@ function TrackerItemModal({ item, onSave, onClose }) {
   );
 }
 
-function TrackerPage() {
-  const [items,  setItems]  = useState(TRACKER_ITEMS.map((t,i)=>({...t, id:i+1})));
-  const [modal,  setModal]  = useState(null); // null | 'add' | item
+function TrackerPage({ trackerItems, setTrackerItems }) {
+  const [items,  setItems_]  = useState(trackerItems);
+  const [modal,  setModal]   = useState(null); // null | 'add' | item
+  // wrap setItems to also propagate up
+  function setItems(v) {
+    const next = typeof v === 'function' ? v(items) : v;
+    setItems_(next);
+    setTrackerItems(next);
+  }
 
   function saveItem(data) {
     if (modal === 'add') {
@@ -1639,29 +1644,137 @@ function HomeKeepingPage({ tasks, setTasks }) {
   );
 }
 
+// ── PROXY URL ─────────────────────────────────────────────────────────────────
+const PROXY = '/.netlify/functions/proxy';
+
+// ── SAVE / LOAD ───────────────────────────────────────────────────────────────
+async function saveSection(section, data) {
+  try {
+    await fetch(PROXY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ section, data }),
+    });
+  } catch(e) { console.error('Save failed:', section, e); }
+}
+
+async function loadAll() {
+  try {
+    const res  = await fetch(PROXY + '?action=load');
+    const json = await res.json();
+    if (json.ok) return json;
+  } catch(e) { console.error('Load failed', e); }
+  return null;
+}
+
+// ── SAVE INDICATOR ────────────────────────────────────────────────────────────
+function SaveBar({ status }) {
+  // status: 'idle' | 'saving' | 'saved' | 'error'
+  if (status === 'idle') return null;
+  const msg   = status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : '⚠ Save failed';
+  const color = status === 'error'  ? 'var(--red)' : status === 'saved' ? 'var(--green-ok)' : 'var(--text-dim)';
+  return h('div', { style:{
+    position:'fixed', bottom:20, right:24, zIndex:300,
+    background:'var(--surface)', border:'1px solid var(--border-soft)',
+    borderRadius:8, padding:'8px 18px', fontSize:13,
+    color, boxShadow:'0 4px 16px rgba(0,0,0,0.08)',
+    transition:'opacity 0.3s',
+  }}, msg);
+}
+
 // ── APP ───────────────────────────────────────────────────────────────────────
 
 function App() {
   const [tab,      setTab]      = useState('Home');
+  const [loading,  setLoading]  = useState(true);
+  const [saveStatus, setSave]   = useState('idle');
+
   const [hkTasks,  setHkTasks]  = useState(DEFAULT_HK);
   const [note,     setNote]     = useState('');
-  const [deposits, setDeposits] = useState({
-    bills:   INIT_BILLS_DEPOSIT,
-    joint:   INIT_JOINT_DEPOSIT,
-    personal:INIT_PERSONAL_BUDGET,
-  });
+  const [deposits, setDeposits] = useState({ bills:INIT_BILLS_DEPOSIT, joint:INIT_JOINT_DEPOSIT, personal:INIT_PERSONAL_BUDGET });
   const [bills,    setBills]    = useState(INIT_BILLS);
   const [joint,    setJoint]    = useState(INIT_JOINT);
   const [personal, setPersonal] = useState(INIT_PERSONAL);
   const [pay,      setPay]      = useState(INIT_PAY);
+  const [accounts, setAccounts] = useState(INIT_ACCOUNTS);
+  const [tracker,  setTracker]  = useState(TRACKER_ITEMS.map((t,i)=>({...t,id:i+1})));
+
+  // ── Load on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    loadAll().then(d => {
+      if (!d) { setLoading(false); return; }
+      if (d.pay)         setPay(d.pay);
+      if (d.deposits)    setDeposits(d.deposits);
+      if (d.bills    && d.bills.length)    setBills(d.bills);
+      if (d.joint    && d.joint.length)    setJoint(d.joint);
+      if (d.personal && d.personal.length) setPersonal(d.personal);
+      if (d.accounts && d.accounts.some(a=>a.entries.length)) setAccounts(d.accounts);
+      if (d.tracker  && d.tracker.length)  setTracker(d.tracker);
+      if (d.homeKeeping && d.homeKeeping.length) setHkTasks(d.homeKeeping);
+      if (d.note !== undefined) setNote(d.note);
+      setLoading(false);
+    });
+  }, []);
+
+  // ── Save helper with indicator ────────────────────────────────────
+  async function save(section, data) {
+    setSave('saving');
+    await saveSection(section, data);
+    setSave('saved');
+    setTimeout(() => setSave('idle'), 2500);
+  }
+
+  // ── Wrapped setters that auto-save ───────────────────────────────
+  function setAndSavePay(v)      { setPay(v);      save('pay', v); }
+  function setAndSaveNote(v)     { setNote(v);     save('note', v); }
+  function setAndSaveHK(v)       { setHkTasks(v);  save('homeKeeping', typeof v === 'function' ? v(hkTasks) : v); }
+  function setAndSaveTracker(v)  { setTracker(v);  save('tracker', typeof v === 'function' ? v(tracker) : v); }
+  function setAndSaveAccounts(v) { setAccounts(v); save('accounts', typeof v === 'function' ? v(accounts) : v); }
+
+  // Budget needs all pieces saved together
+  function saveBudget({ dep, b, j, p }) {
+    const nd = dep || deposits, nb = b || bills, nj = j || joint, np = p || personal;
+    save('budget', { deposits: nd, bills: nb, joint: nj, personal: np });
+  }
+
+  function wrapDeposits(updater) {
+    const next = typeof updater === 'function' ? updater(deposits) : updater;
+    setDeposits(next);
+    saveBudget({ dep: next });
+  }
+  function wrapBills(updater) {
+    const next = typeof updater === 'function' ? updater(bills) : updater;
+    setBills(next);
+    saveBudget({ b: next });
+  }
+  function wrapJoint(updater) {
+    const next = typeof updater === 'function' ? updater(joint) : updater;
+    setJoint(next);
+    saveBudget({ j: next });
+  }
+  function wrapPersonal(updater) {
+    const next = typeof updater === 'function' ? updater(personal) : updater;
+    setPersonal(next);
+    saveBudget({ p: next });
+  }
+
+  if (loading) return h('div', { style:{
+    display:'flex', alignItems:'center', justifyContent:'center',
+    height:'100vh', flexDirection:'column', gap:16,
+    fontFamily:'Jost,sans-serif', color:'var(--text-dim)',
+  }},
+    h('div', { style:{fontSize:24, color:'var(--forest)', fontFamily:'Cormorant Garamond,serif'} }, 'W&R'),
+    h('div', { style:{fontSize:13, letterSpacing:'0.1em'} }, 'Loading your data…')
+  );
 
   return h('div', null,
     h(Nav, { tab, setTab }),
-    tab==='Home'         && h(HomePage,        { hkTasks, note, setNote }),
-    tab==='Budget'       && h(BudgetPage,      { deposits, setDeposits, bills, setBills, joint, setJoint, personal, setPersonal, pay }),
-    tab==='Accounts'     && h(AccountsPage,    { pay, setPay }),
-    tab==='Tracker'      && h(TrackerPage),
-    tab==='Home Keeping' && h(HomeKeepingPage, { tasks:hkTasks, setTasks:setHkTasks })
+    h(SaveBar, { status: saveStatus }),
+    tab==='Home'         && h(HomePage,        { hkTasks, note, setNote: setAndSaveNote }),
+    tab==='Budget'       && h(BudgetPage,      { deposits, setDeposits:wrapDeposits, bills, setBills:wrapBills, joint, setJoint:wrapJoint, personal, setPersonal:wrapPersonal, pay }),
+    tab==='Accounts'     && h(AccountsPage,    { pay, setPay:setAndSavePay, accounts, setAccounts:setAndSaveAccounts }),
+    tab==='Tracker'      && h(TrackerPage,     { trackerItems:tracker, setTrackerItems:setAndSaveTracker }),
+    tab==='Home Keeping' && h(HomeKeepingPage, { tasks:hkTasks, setTasks:setAndSaveHK })
   );
 }
 
