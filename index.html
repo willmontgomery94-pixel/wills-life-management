@@ -1,63 +1,1508 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Will's Life Management</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>W&R Life Management</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #0f0f0f;
-        color: #f0f0f0;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+    :root {
+      --bg:          #f4f1eb;
+      --bg2:         #ede9e1;
+      --surface:     #ffffff;
+      --surface2:    #f9f7f3;
+      --border:      #ddd8cc;
+      --border-soft: #e8e4da;
+      --forest:      #2d4a3e;
+      --sage:        #5a7a6a;
+      --moss:        #7a9e7e;
+      --lime:        #a8c5a0;
+      --mint:        #d4e8d0;
+      --fern:        #3d6b52;
+      --text:        #1a2820;
+      --text-muted:  #4a6a5a;
+      --text-dim:    #8fa89a;
+      --red:         #c0513a;
+      --amber:       #b8862a;
+      --green-ok:    #3d6b52;
+      /* expense row tones - warm ivory -> dusty rose -> terracotta */
+      --exp-1: #fdf8f5;
+      --exp-2: #faf3ef;
+      --exp-3: #f7ede7;
+      --exp-4: #f4e7df;
+      --exp-5: #f0dfd5;
+      --exp-6: #ecdad0;
+      --exp-7: #e8d4c8;
+      --exp-8: #e3ccbf;
+      --exp-9: #dfc5b6;
+      --radius:    10px;
+      --radius-lg: 14px;
+    }
 
-      .home {
-        text-align: center;
-      }
+    body {
+      font-family: 'Jost', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      font-weight: 300;
+    }
 
-      .home h1 {
-        font-size: 3rem;
-        font-weight: 300;
-        letter-spacing: 0.05em;
-        color: #ffffff;
-      }
+    /* ── NAV ── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 36px; height: 62px;
+      background: var(--forest);
+      box-shadow: 0 2px 20px rgba(45,74,62,0.22);
+    }
+    .nav-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 21px; font-weight: 600;
+      color: var(--mint); letter-spacing: 0.05em;
+      display: flex; align-items: baseline; gap: 0;
+    }
+    .nav-brand-amp { color: var(--lime); font-weight: 300; margin: 0 1px; }
+    .nav-brand-sub {
+      font-family: 'Jost', sans-serif;
+      color: rgba(212,232,208,0.5); font-weight: 300;
+      font-size: 12px; margin-left: 12px; letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .nav-tabs { display: flex; gap: 2px; }
+    .nav-tab {
+      padding: 8px 16px; border-radius: 6px; border: none;
+      background: transparent; color: rgba(212,232,208,0.5);
+      font-family: 'Jost', sans-serif; font-size: 13px; font-weight: 400;
+      cursor: pointer; transition: all 0.18s; letter-spacing: 0.04em;
+    }
+    .nav-tab:hover  { color: var(--mint); background: rgba(255,255,255,0.07); }
+    .nav-tab.active { background: rgba(168,197,160,0.18); color: var(--lime); }
 
-      .home p {
-        margin-top: 0.5rem;
-        font-size: 1rem;
-        color: #555;
-        letter-spacing: 0.15em;
-        text-transform: uppercase;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>
-      const { createElement: h, useState } = React;
+    /* ── PAGE ── */
+    .page { padding: 82px 36px 56px; max-width: 1180px; margin: 0 auto; }
 
-      function App() {
-        return h(
-          "div",
-          { className: "home" },
-          h("h1", null, "Hi Will 👋"),
-          h("p", null, "Will's Life Management")
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .page > * { animation: fadeUp 0.3s ease both; }
+    .page > *:nth-child(1) { animation-delay: 0.03s; }
+    .page > *:nth-child(2) { animation-delay: 0.08s; }
+    .page > *:nth-child(3) { animation-delay: 0.13s; }
+    .page > *:nth-child(4) { animation-delay: 0.18s; }
+    .page > *:nth-child(5) { animation-delay: 0.23s; }
+
+    /* ── HOME ── */
+    .home-hero {
+      padding: 48px 0 30px;
+      border-bottom: 1px solid var(--border-soft);
+      margin-bottom: 30px;
+    }
+    .home-eyebrow {
+      font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--moss); margin-bottom: 12px;
+    }
+    .home-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(42px, 6vw, 70px);
+      font-weight: 300; line-height: 1.05; color: var(--forest);
+    }
+    .home-title strong { font-weight: 600; color: var(--fern); }
+    .home-date { color: var(--text-dim); font-size: 13px; margin-top: 10px; letter-spacing: 0.06em; }
+    .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .home-panel {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 22px 26px;
+    }
+    .home-panel-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em;
+      color: var(--text-dim); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .home-panel-title::before {
+      content: ''; display: block; width: 3px; height: 13px;
+      background: var(--moss); border-radius: 2px;
+    }
+    .due-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 9px 0; border-bottom: 1px solid var(--border-soft);
+    }
+    .due-item:last-child { border-bottom: none; }
+    .due-item-name { font-size: 14px; color: var(--text); }
+    .due-item-sub  { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .home-empty { color: var(--text-dim); font-size: 13px; padding: 6px 0; }
+
+    /* ── SECTION HEADER ── */
+    .section-header { margin-bottom: 22px; padding-top: 6px; }
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px; font-weight: 400; color: var(--forest);
+    }
+    .section-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.05em; }
+
+    /* ── GRIDS ── */
+    .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 26px; }
+
+    /* ── STAT CARDS ── */
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 18px 20px;
+      position: relative; overflow: hidden;
+    }
+    .stat-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--moss), var(--lime));
+    }
+    .stat-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+      color: var(--text-dim); margin-bottom: 6px;
+    }
+    .stat-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px; font-weight: 500; color: var(--forest); line-height: 1;
+    }
+    .stat-note   { font-size: 12px; color: var(--text-dim); margin-top: 5px; }
+    .stat-change { font-size: 12px; margin-top: 4px; }
+    .stat-change.pos { color: var(--green-ok); }
+    .stat-change.neg { color: var(--red); }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 500; letter-spacing: 0.04em; white-space: nowrap;
+    }
+    .badge-overdue  { background: rgba(192,81,58,0.10);  color: var(--red);      border: 1px solid rgba(192,81,58,0.25); }
+    .badge-due-soon { background: rgba(184,134,42,0.10); color: var(--amber);    border: 1px solid rgba(184,134,42,0.25); }
+    .badge-ok       { background: rgba(61,107,82,0.10);  color: var(--green-ok); border: 1px solid rgba(61,107,82,0.22); }
+
+    /* ══════════════════════════════════════════════
+       BUDGET
+    ══════════════════════════════════════════════ */
+    /* Top summary bar */
+    .budget-summary {
+      background: var(--forest); border-radius: var(--radius-lg);
+      padding: 20px 28px; margin-bottom: 24px;
+      display: flex; align-items: center; gap: 0;
+    }
+    .bs-item {
+      flex: 1; text-align: center; position: relative;
+    }
+    .bs-item + .bs-item::before {
+      content: ''; position: absolute; left: 0; top: 15%; bottom: 15%;
+      width: 1px; background: rgba(212,232,208,0.2);
+    }
+    .bs-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+      color: rgba(212,232,208,0.55); margin-bottom: 5px;
+    }
+    .bs-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px; font-weight: 500; color: var(--lime);
+    }
+    .bs-item.total .bs-label { color: rgba(212,232,208,0.8); }
+    .bs-item.total .bs-value { color: #fff; font-size: 30px; }
+
+    .budget-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+    .budget-block {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); overflow: hidden;
+    }
+    .budget-block-head {
+      background: var(--forest); padding: 14px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .budget-block-head-title { font-size: 13px; color: var(--mint); letter-spacing: 0.04em; font-weight: 400; }
+    .budget-block-head-total {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px; color: var(--lime); font-weight: 400;
+    }
+    .budget-block-head-edit {
+      background: rgba(255,255,255,0.1); border: none; color: var(--lime);
+      font-size: 11px; font-family: 'Jost', sans-serif; letter-spacing: 0.06em;
+      padding: 4px 10px; border-radius: 5px; cursor: pointer; transition: background 0.15s;
+    }
+    .budget-block-head-edit:hover { background: rgba(255,255,255,0.18); }
+
+    /* expense rows with colour gradient */
+    /* Budget rows — 4 col grid: name | monthly | annual | actions */
+    .budget-row-header {
+      display: grid; grid-template-columns: 1fr 90px 90px 80px;
+      padding: 7px 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .budget-row-header span {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim);
+    }
+    .budget-row {
+      display: grid; grid-template-columns: 1fr 90px 90px 80px;
+      align-items: center;
+      padding: 10px 20px; border-bottom: 1px solid rgba(220,210,200,0.5);
+      transition: filter 0.12s;
+    }
+    .budget-row:hover { filter: brightness(0.97); }
+    .budget-row:last-child { border-bottom: none; }
+    .budget-row-name { font-size: 13px; font-weight: 400; }
+    .budget-row-amt  { font-size: 13px; font-weight: 500; }
+    .budget-row-actions { display: flex; gap: 5px; opacity: 0; transition: opacity 0.15s; }
+    .budget-row:hover .budget-row-actions { opacity: 1; }
+    .budget-row-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 12px; padding: 2px 7px; border-radius: 4px;
+      font-family: 'Jost', sans-serif;
+    }
+    .budget-row-btn.edit { color: var(--sage); }
+    .budget-row-btn.edit:hover { background: var(--mint); color: var(--fern); }
+    .budget-row-btn.del { color: #c0513a88; }
+    .budget-row-btn.del:hover { background: rgba(192,81,58,0.08); color: var(--red); }
+
+    .budget-row.add-row { cursor: pointer; background: #f9f6f3; }
+    .budget-row.add-row:hover { background: var(--mint); filter: none; }
+    .budget-row.total { background: var(--mint); }
+    .budget-row.total .budget-row-name,
+    .budget-row.total .budget-row-amt  { color: var(--fern); font-weight: 600; }
+    .budget-row.total:hover { filter: none; }
+    .budget-row.remaining .budget-row-name,
+    .budget-row.remaining .budget-row-amt { color: var(--text-dim); font-weight: 400; }
+    .budget-row.remaining { background: var(--surface2); }
+    .budget-row.remaining:hover { filter: none; }
+
+    /* Pot toggle in modal */
+    .pot-toggle-row { padding: 4px 0; }
+    .pot-toggle-label {
+      display: flex; align-items: center;
+      font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;
+    }
+
+    /* deposit edit row inside head */
+    .deposit-edit-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 20px 10px; background: rgba(45,74,62,0.04);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .deposit-edit-row label { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+    .deposit-edit-row input {
+      width: 110px; padding: 5px 10px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-family: 'Jost', sans-serif; font-size: 13px; color: var(--text);
+      background: var(--surface); outline: none;
+    }
+    .deposit-edit-row input:focus { border-color: var(--moss); }
+    .deposit-save-btn {
+      padding: 5px 14px; background: var(--fern); color: #fff;
+      border: none; border-radius: 6px; font-family: 'Jost', sans-serif;
+      font-size: 12px; cursor: pointer;
+    }
+    .deposit-save-btn:hover { background: var(--forest); }
+
+    /* budget inline edit */
+    .row-edit-input {
+      width: 90px; padding: 4px 8px; border: 1px solid var(--moss);
+      border-radius: 5px; font-family: 'Jost', sans-serif; font-size: 13px;
+      background: #fff; outline: none;
+    }
+    .row-edit-name {
+      flex: 1; padding: 4px 8px; border: 1px solid var(--moss);
+      border-radius: 5px; font-family: 'Jost', sans-serif; font-size: 13px;
+      background: #fff; outline: none; margin-right: 8px;
+    }
+
+    /* ══════════════════════════════════════════════
+       ACCOUNTS
+    ══════════════════════════════════════════════ */
+    .acc-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+    .acc-card {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 16px 20px;
+      position: relative; overflow: hidden;
+    }
+    .acc-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--moss), var(--lime));
+    }
+    .acc-card-name {
+      font-size: 13px; font-weight: 500; color: var(--forest);
+      letter-spacing: 0.02em; margin-bottom: 4px;
+    }
+    .acc-card-val {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px; font-weight: 500; color: var(--text); line-height: 1.1;
+    }
+    .acc-card-chg { font-size: 12px; margin-top: 4px; }
+    .acc-card-chg.pos { color: var(--green-ok); }
+    .acc-card-chg.neg { color: var(--red); }
+    .acc-card-periods { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .period-badge {
+      font-size: 11px; font-weight: 500; padding: 2px 8px;
+      border-radius: 12px; letter-spacing: 0.03em;
+    }
+    .period-badge.pos { background: rgba(61,107,82,0.10); color: var(--green-ok); border: 1px solid rgba(61,107,82,0.2); }
+    .period-badge.neg { background: rgba(192,81,58,0.10); color: var(--red); border: 1px solid rgba(192,81,58,0.2); }
+    .acc-add-btn {
+      margin-top: 10px; background: none; border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 12px; font-family: 'Jost', sans-serif;
+      font-size: 12px; color: var(--sage); cursor: pointer; transition: all 0.15s;
+      display: inline-block;
+    }
+    .acc-add-btn:hover { border-color: var(--moss); color: var(--fern); background: var(--mint); }
+
+    .acc-total-bar {
+      background: var(--forest); border-radius: var(--radius-lg);
+      padding: 14px 24px; margin-bottom: 24px;
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .acc-total-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(212,232,208,0.6); }
+    .acc-total-val { font-family: 'Cormorant Garamond', serif; font-size: 28px; color: #fff; font-weight: 400; }
+
+    .acc-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .acc-table {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); overflow: hidden;
+    }
+    .acc-table-title {
+      padding: 12px 18px; border-bottom: 1px solid var(--border-soft);
+      background: var(--surface2);
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .acc-table-name {
+      font-size: 14px; font-weight: 500; color: var(--forest); letter-spacing: 0.02em;
+    }
+    .acc-table-latest {
+      font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--fern);
+    }
+    .acc-thead, .acc-row {
+      display: grid; grid-template-columns: 130px 1fr 1fr 1fr;
+      padding: 9px 18px;
+    }
+    .acc-thead {
+      border-bottom: 1px solid var(--border-soft); background: var(--bg2);
+    }
+    .acc-thead span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-dim); }
+    .acc-row { border-bottom: 1px solid var(--border-soft); transition: background 0.12s; }
+    .acc-row:last-child { border-bottom: none; }
+    .acc-row:hover { background: var(--surface2); }
+    .acc-row span { font-size: 13px; color: var(--text); display: flex; align-items: center; }
+    .acc-row .date { color: var(--text-muted); font-size: 12px; }
+    .acc-row .pos  { color: var(--green-ok); }
+    .acc-row .neg  { color: var(--red); }
+    .acc-row .dim  { color: var(--text-dim); }
+
+    /* ══════════════════════════════════════════════
+       TRACKER
+    ══════════════════════════════════════════════ */
+    .tracker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .tracker-item {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 18px 22px;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: box-shadow 0.2s; border-left: 3px solid transparent;
+    }
+    .tracker-item:hover { box-shadow: 0 4px 18px rgba(45,74,62,0.08); }
+    .tracker-item.is-due  { border-left-color: var(--red); }
+    .tracker-item.is-soon { border-left-color: var(--amber); }
+    .tracker-item-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .tracker-item-name { font-size: 15px; font-weight: 500; color: var(--forest); }
+    .tracker-item-provider { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+    .tracker-item-cost { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--sage); }
+    .tracker-dates { display: flex; gap: 22px; }
+    .tracker-date-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
+    .tracker-date-val { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .tracker-notes { font-size: 11px; color: var(--text-dim); font-style: italic; }
+
+    /* ══════════════════════════════════════════════
+       HOME KEEPING
+    ══════════════════════════════════════════════ */
+    .hk-toolbar {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      margin-bottom: 22px;
+    }
+    .hk-add-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--forest); color: var(--mint);
+      border: none; border-radius: 8px; padding: 10px 20px;
+      font-family: 'Jost', sans-serif; font-size: 13px; cursor: pointer;
+      transition: background 0.18s; letter-spacing: 0.04em;
+    }
+    .hk-add-btn:hover { background: var(--fern); }
+
+    .hk-tasks { display: flex; flex-direction: column; gap: 9px; }
+    .hk-task {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 14px 20px;
+      display: flex; align-items: center; gap: 14px;
+      transition: box-shadow 0.18s; border-left: 3px solid transparent;
+    }
+    .hk-task:hover { box-shadow: 0 3px 14px rgba(45,74,62,0.07); }
+    .hk-task.overdue  { border-left-color: var(--red); }
+    .hk-task.due-soon { border-left-color: var(--amber); }
+    .hk-task.ok       { border-left-color: var(--lime); }
+
+    .hk-check {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid var(--border); background: transparent;
+      cursor: pointer; flex-shrink: 0; transition: all 0.18s;
+    }
+    .hk-check:hover { border-color: var(--moss); background: var(--mint); }
+
+    .hk-task-body { flex: 1; min-width: 0; }
+    .hk-task-name { font-size: 14px; color: var(--text); font-weight: 400; }
+    .hk-task-meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .hk-task-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .hk-icon-btn {
+      background: none; border: 1px solid var(--border); cursor: pointer;
+      color: var(--text-dim); font-size: 12px; padding: 3px 9px;
+      border-radius: 5px; font-family: 'Jost', sans-serif;
+      transition: all 0.15s; letter-spacing: 0.04em;
+    }
+    .hk-icon-btn:hover { border-color: var(--sage); color: var(--sage); background: var(--surface2); }
+    .hk-icon-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+    /* ══════════════════════════════════════════════
+       SHARED MODAL
+    ══════════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(30,46,39,0.42); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 30px 34px;
+      width: 440px; max-width: 95vw;
+      box-shadow: 0 24px 60px rgba(45,74,62,0.18);
+    }
+    .modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; color: var(--forest); margin-bottom: 22px;
+    }
+    .form-row { margin-bottom: 16px; }
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .form-label {
+      display: block; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.13em; color: var(--text-dim); margin-bottom: 7px;
+    }
+    .form-input, .form-select {
+      width: 100%; padding: 10px 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; font-family: 'Jost', sans-serif;
+      font-size: 14px; color: var(--text); outline: none;
+      transition: border-color 0.18s;
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--moss); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+    .btn-cancel {
+      padding: 9px 20px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-muted); font-family: 'Jost', sans-serif;
+      font-size: 13px; cursor: pointer; transition: background 0.14s;
+    }
+    .btn-cancel:hover { background: var(--bg2); }
+    .btn-save {
+      padding: 9px 24px; border-radius: 8px; border: none;
+      background: var(--forest); color: var(--mint);
+      font-family: 'Jost', sans-serif; font-size: 13px; cursor: pointer;
+      transition: background 0.14s;
+    }
+    .btn-save:hover { background: var(--fern); }
+
+    .gap { height: 20px; }
+
+    /* ── PAY INFO PANEL ── */
+    .pay-panel {
+      background: var(--surface); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); overflow: hidden;
+    }
+    .pay-panel-head {
+      background: var(--forest); padding: 14px 20px;
+      display: flex; align-items: center;
+    }
+    .pay-panel-title { font-size: 13px; color: var(--mint); letter-spacing: 0.04em; flex: 1; }
+    .pay-edit-grid {
+      padding: 18px 20px; background: rgba(45,74,62,0.03);
+      border-bottom: 1px solid var(--border-soft);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px;
+    }
+    .pay-edit-grid .form-row { margin-bottom: 0; }
+    .pay-table { width: 100%; }
+    .pay-thead {
+      display: grid; grid-template-columns: 1fr 140px 140px;
+      padding: 9px 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .pay-thead span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-dim); }
+    .pay-row {
+      display: grid; grid-template-columns: 1fr 140px 140px;
+      padding: 11px 20px; border-bottom: 1px solid var(--border-soft);
+      transition: background 0.12s;
+    }
+    .pay-row:last-child { border-bottom: none; }
+    .pay-row:hover { background: var(--surface2); }
+    .pay-row-label { font-size: 13px; color: var(--text-muted); }
+    .pay-row-val   { font-size: 13px; color: var(--text); }
+    .pay-row-deduction .pay-row-label { color: var(--text-dim); }
+    .pay-row-deduction .pay-row-val   { color: var(--red); }
+    .pay-row-total { background: var(--mint); }
+    .pay-row-total .pay-row-label { color: var(--fern); font-weight: 600; font-size: 14px; }
+    .pay-row-total .pay-row-val   { color: var(--fern); font-weight: 600; font-size: 14px; }
+    .pay-row-total:hover { background: var(--mint); filter: brightness(0.97); }
+
+    @media (max-width: 860px) {
+      .nav { padding: 0 16px; }
+      .nav-brand-sub { display: none; }
+      .page { padding: 70px 16px 40px; }
+      .grid-4, .acc-cards { grid-template-columns: 1fr 1fr; }
+      .budget-grid, .tracker-grid, .home-grid, .acc-tables { grid-template-columns: 1fr; }
+      .acc-thead, .acc-row { grid-template-columns: 110px 1fr 1fr; }
+      .acc-thead span:last-child, .acc-row span:last-child { display: none; }
+      .budget-summary { flex-direction: column; gap: 14px; }
+      .bs-item + .bs-item::before { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { createElement: h, useState } = React;
+
+// ── COLOUR PALETTE FOR EXPENSE ROWS ──────────────────────────────────────────
+const EXP_COLORS = [
+  '#fdf8f5','#f9f0ea','#f5e8e0','#f1dfd5','#edd5c9',
+  '#e9ccbd','#e4c2b1','#deb8a5','#d8ad99','#d2a38d',
+];
+
+// ── DEFAULT DATA ──────────────────────────────────────────────────────────────
+
+const INIT_BILLS_DEPOSIT   = 900;
+const INIT_JOINT_DEPOSIT   = 600;
+const INIT_PERSONAL_BUDGET = 500;
+
+const INIT_BILLS = [
+  { id:1, name:'Mortgage',    amount:1238.89, isPot:false },
+  { id:2, name:'Energy',      amount:186.79,  isPot:false },
+  { id:3, name:'Council Tax', amount:234,     isPot:false },
+  { id:4, name:'Internet',    amount:25,      isPot:false },
+];
+const INIT_JOINT = [
+  { id:10, name:'Netflix',          amount:12.99,  isPot:false },
+  { id:11, name:'Purdy & Figg',     amount:7,      isPot:false },
+  { id:12, name:'Amazon Prime',     amount:7.99,   isPot:false },
+  { id:13, name:'Rouvey',           amount:19.99,  isPot:false },
+  { id:14, name:'Dates',            amount:10,     isPot:true  },
+  { id:15, name:'Insurance',        amount:125,    isPot:true  },
+  { id:16, name:'Holiday',          amount:300,    isPot:true  },
+  { id:17, name:'Home Improvements',amount:100,    isPot:true  },
+  { id:18, name:'Food',             amount:400,    isPot:false },
+];
+const INIT_PERSONAL = [
+  { id:20, name:'Monzo',           amount:17,   isPot:false },
+  { id:21, name:'Microsoft Photos',amount:1.69, isPot:false },
+  { id:22, name:'Shopping',        amount:200,  isPot:true  },
+  { id:23, name:'Golf Sub',        amount:16,   isPot:false },
+  { id:24, name:'Car',             amount:30,   isPot:true  },
+  { id:25, name:'Christmas',       amount:50,   isPot:true  },
+  { id:26, name:'EE',              amount:13.5, isPot:false },
+];
+
+const INIT_ACCOUNTS = [
+  { label:'Barclays Savings', entries:[
+    { iso:'2026-03-31', date:'31 Mar 2026', value:5121.13 },
+    { iso:'2026-02-08', date:'8 Feb 2026',  value:5105.21 },
+    { iso:'2026-01-10', date:'10 Jan 2026', value:5087.60 },
+    { iso:'2025-12-01', date:'1 Dec 2025',  value:5070.19 },
+    { iso:'2025-10-19', date:'19 Oct 2025', value:5035.00 },
+  ]},
+  { label:'Monzo', entries:[
+    { iso:'2026-03-31', date:'31 Mar 2026', value:7985.77 },
+    { iso:'2026-02-08', date:'8 Feb 2026',  value:7966.22 },
+    { iso:'2026-01-10', date:'10 Jan 2026', value:7944.38 },
+    { iso:'2025-12-01', date:'1 Dec 2025',  value:8855.74 },
+    { iso:'2025-10-19', date:'19 Oct 2025', value:8854.63 },
+  ]},
+  { label:'OAKGLEN', entries:[
+    { iso:'2026-03-31', date:'31 Mar 2026', value:201332 },
+    { iso:'2026-02-08', date:'8 Feb 2026',  value:208041 },
+    { iso:'2026-01-10', date:'10 Jan 2026', value:207795 },
+    { iso:'2025-12-01', date:'1 Dec 2025',  value:202555 },
+    { iso:'2025-10-19', date:'19 Oct 2025', value:200000 },
+  ]},
+  { label:'Vanguard', entries:[
+    { iso:'2026-03-31', date:'31 Mar 2026', value:14740.62 },
+    { iso:'2026-02-08', date:'8 Feb 2026',  value:15280.78 },
+    { iso:'2026-01-10', date:'10 Jan 2026', value:15256.00 },
+    { iso:'2025-12-01', date:'1 Dec 2025',  value:15007.56 },
+    { iso:'2025-10-19', date:'19 Oct 2025', value:14519.00 },
+  ]},
+];
+
+const TRACKER_ITEMS = [
+  { name:'TV Licence',            provider:'Licence 4146910611',    cost:174.50, lastDone:'2025-02-28', renewal:'2027-02-28', notes:'' },
+  { name:'Ring Insurance',        provider:'Admiral',               cost:null,   lastDone:null,          renewal:null,         notes:'Included 2025–2026' },
+  { name:'House Insurance',       provider:'Admiral',               cost:642.53, lastDone:'2024-06-21', renewal:'2026-06-21', notes:'' },
+  { name:'Car Insurance (Mazda)', provider:'Admiral',               cost:412.58, lastDone:'2025-06-21', renewal:'2026-06-21', notes:'' },
+  { name:'Car Insurance (Kia)',   provider:'Admiral',               cost:534.23, lastDone:'2025-06-21', renewal:'2026-06-21', notes:'' },
+  { name:'Car Tax',               provider:'',                      cost:195,    lastDone:null,          renewal:null,         notes:'' },
+  { name:'Kia Service',           provider:'Kia',                   cost:null,   lastDone:'2025-06-03', renewal:'2026-06-03', notes:'3100 miles' },
+  { name:'Kia MOT',               provider:'Kia',                   cost:422.24, lastDone:'2025-09-19', renewal:'2026-09-19', notes:'3 tyres — 2 done' },
+  { name:'Fire Swept',            provider:'P Pitman 01458 223 212',cost:60,     lastDone:'2025-10-17', renewal:'2026-10-17', notes:'' },
+  { name:'Boiler Serviced',       provider:'',                      cost:null,   lastDone:null,          renewal:null,         notes:'' },
+  { name:'Windows Washed',        provider:'',                      cost:null,   lastDone:null,          renewal:null,         notes:'' },
+  { name:'Gutters Cleaned',       provider:'',                      cost:null,   lastDone:null,          renewal:null,         notes:'' },
+  { name:'Mattress Insurance',    provider:'Staingard – Bensons',   cost:null,   lastDone:'2023-12-22', renewal:'2028-12-21', notes:'Castelan — claim.castelangroup.com' },
+];
+
+const FREQ_DAYS   = { daily:1, weekly:7, fortnightly:14, threeweekly:21, monthly:30, quarterly:91, yearly:365 };
+const FREQ_LABELS = { daily:'Daily', weekly:'Weekly', fortnightly:'Fortnightly', threeweekly:'Every 3 Weeks', monthly:'Monthly', quarterly:'Quarterly', yearly:'Yearly' };
+
+const DEFAULT_HK = [
+  { id:1, name:'Hoover upstairs',   frequency:'weekly',      lastDone:null, nextDue:null },
+  { id:2, name:'Mop kitchen floor', frequency:'weekly',      lastDone:null, nextDue:null },
+  { id:3, name:'Clean bathrooms',   frequency:'weekly',      lastDone:null, nextDue:null },
+  { id:4, name:'Change bed sheets', frequency:'fortnightly', lastDone:null, nextDue:null },
+  { id:5, name:'Clean oven',        frequency:'monthly',     lastDone:null, nextDue:null },
+  { id:6, name:'Descale kettle',    frequency:'monthly',     lastDone:null, nextDue:null },
+];
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+function fmt(n) {
+  if (n == null) return '—';
+  return '£' + n.toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function fmtDate(str) {
+  if (!str) return '—';
+  return new Date(str).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+function daysBetween(str) {
+  if (!str) return null;
+  const d = new Date(str); d.setHours(0,0,0,0);
+  return Math.round((d - TODAY) / 86400000);
+}
+function pctChange(curr, prev) {
+  if (!prev) return null;
+  return ((curr - prev) / Math.abs(prev)) * 100;
+}
+function sumAmt(arr) { return arr.reduce((s,x) => s + Number(x.amount), 0); }
+
+// Task helpers — nextDue overrides calculated date if set
+function taskEffectiveDue(t) {
+  // nextDue pin takes priority only if it's in the future relative to the calculated date
+  if (!t.lastDone && !t.nextDue) return null;
+  // Calculate from lastDone
+  let fromLastDone = null;
+  if (t.lastDone) {
+    const d = new Date(t.lastDone);
+    d.setDate(d.getDate() + (FREQ_DAYS[t.frequency] || 7));
+    fromLastDone = d.toISOString().split('T')[0];
+  }
+  // If user set a nextDue override, use whichever is later (respects manual pinning)
+  if (t.nextDue && (!fromLastDone || t.nextDue > fromLastDone)) return t.nextDue;
+  return fromLastDone;
+}
+function taskDays(t) {
+  const due = taskEffectiveDue(t);
+  if (!due && !t.lastDone) return -9999;
+  if (!due) return -9999;
+  return daysBetween(due);
+}
+function taskStatus(t) {
+  const d = taskDays(t);
+  if (d < 0)  return 'overdue';
+  if (d <= 3) return 'due-soon';
+  return 'ok';
+}
+function taskLabel(t) {
+  const d = taskDays(t);
+  if (d === -9999) return 'Never done';
+  if (d < 0)  return `Overdue ${Math.abs(d)}d`;
+  if (d === 0) return 'Due today';
+  return `Due in ${d}d`;
+}
+function rnStatus(days) {
+  if (days == null) return null;
+  if (days < 0)   return 'overdue';
+  if (days <= 60) return 'due-soon';
+  return 'ok';
+}
+function rnLabel(days) {
+  if (days == null) return null;
+  if (days < 0)  return `Overdue ${Math.abs(days)}d`;
+  if (days === 0) return 'Due today';
+  return `Due in ${days}d`;
+}
+
+// ── SHARED COMPONENTS ─────────────────────────────────────────────────────────
+
+function Badge({ status, label }) {
+  if (!status || !label) return null;
+  return h('span', { className:`badge badge-${status}` }, label);
+}
+
+function Nav({ tab, setTab }) {
+  const tabs = ['Home','Budget','Accounts','Tracker','Home Keeping'];
+  return h('nav', { className:'nav' },
+    h('div', { className:'nav-brand' },
+      'W', h('span', { className:'nav-brand-amp' }, '&'), 'R',
+      h('span', { className:'nav-brand-sub' }, 'Life Management')
+    ),
+    h('div', { className:'nav-tabs' },
+      tabs.map(t => h('button', {
+        key:t, className:'nav-tab'+(tab===t?' active':''),
+        onClick:() => setTab(t)
+      }, t))
+    )
+  );
+}
+
+// ── HOME PAGE ─────────────────────────────────────────────────────────────────
+
+function HomePage({ hkTasks }) {
+  const dateStr = TODAY.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  const urgentHK = [...hkTasks]
+    .map(t => ({ ...t, st:taskStatus(t), lbl:taskLabel(t), days:taskDays(t) }))
+    .filter(t => t.st==='overdue'||t.st==='due-soon')
+    .sort((a,b) => a.days-b.days);
+
+  const urgentRn = TRACKER_ITEMS
+    .filter(t => t.renewal)
+    .map(t => { const d=daysBetween(t.renewal); return {...t,d,st:rnStatus(d),lbl:rnLabel(d)}; })
+    .filter(t => t.st==='overdue'||t.st==='due-soon')
+    .sort((a,b) => a.d-b.d);
+
+  return h('div', { className:'page' },
+    h('div', { className:'home-hero' },
+      h('p', { className:'home-eyebrow' }, 'W&R Life Management'),
+      h('p', { className:'home-date' }, dateStr)
+    ),
+    h('div', { className:'home-grid' },
+      h('div', { className:'home-panel' },
+        h('div', { className:'home-panel-title' }, 'Home Keeping — Action Needed'),
+        urgentHK.length===0
+          ? h('p', { className:'home-empty' }, '✓ All tasks up to date')
+          : urgentHK.map(t => h('div', { key:t.id, className:'due-item' },
+              h('div', null,
+                h('div', { className:'due-item-name' }, t.name),
+                h('div', { className:'due-item-sub' }, FREQ_LABELS[t.frequency])
+              ),
+              h(Badge, { status:t.st, label:t.lbl })
+            ))
+      ),
+      h('div', { className:'home-panel' },
+        h('div', { className:'home-panel-title' }, 'Renewals — Action Needed'),
+        urgentRn.length===0
+          ? h('p', { className:'home-empty' }, '✓ No upcoming renewals')
+          : urgentRn.map(t => h('div', { key:t.name, className:'due-item' },
+              h('div', null,
+                h('div', { className:'due-item-name' }, t.name),
+                h('div', { className:'due-item-sub' }, t.provider||'')
+              ),
+              h(Badge, { status:t.st, label:t.lbl })
+            ))
+      )
+    )
+  );
+}
+
+// ── BUDGET PAGE ───────────────────────────────────────────────────────────────
+
+function BudgetRowModal({ row, onSave, onClose }) {
+  const [name,  setName]  = useState(row ? row.name : '');
+  const [amount, setAmt]  = useState(row ? String(row.amount) : '');
+  const [isPot,  setIsPot]= useState(row ? !!row.isPot : false);
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, row ? 'Edit Item' : 'Add Item'),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Name'),
+        h('input', { className:'form-input', value:name, onChange:e=>setName(e.target.value) })
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Monthly amount (£)'),
+        h('input', { type:'number', className:'form-input', value:amount, onChange:e=>setAmt(e.target.value) })
+      ),
+      h('div', { className:'form-row' },
+        h('div', { className:'pot-toggle-row' },
+          h('label', { className:'pot-toggle-label' },
+            h('input', { type:'checkbox', checked:isPot, onChange:e=>setIsPot(e.target.checked),
+              style:{ marginRight:8, accentColor:'var(--fern)' } }),
+            h('span', { style:{fontSize:16, marginRight:6} }, '⬡'),
+            'This is a savings pot (money moves into a pot, not spent directly)'
+          )
+        )
+      ),
+      h('div', { className:'modal-actions' },
+        h('button', { className:'btn-cancel', onClick:onClose }, 'Cancel'),
+        h('button', { className:'btn-save', onClick:() => {
+          if (!name.trim()||isNaN(parseFloat(amount))) return;
+          onSave({ name:name.trim(), amount:parseFloat(amount), isPot });
+        }}, 'Save')
+      )
+    )
+  );
+}
+
+function BudgetBlock({ title, deposit, rows, setDeposit, setRows }) {
+  const [editingDeposit, setEditingDeposit] = useState(false);
+  const [depositInput,   setDepositInput]   = useState(String(deposit));
+  const [rowModal,       setRowModal]        = useState(null);
+  const total = sumAmt(rows);
+  const displayDeposit = title === 'Bills Pot' ? deposit * 2
+    : title === 'Joint Expenses' ? deposit * 2
+    : deposit;
+
+  // Sort largest -> smallest; colour by amount rank (largest = darkest)
+  const sortedRows = [...rows].sort((a,b) => Number(b.amount) - Number(a.amount));
+  const maxAmt = sortedRows.length > 0 ? Number(sortedRows[0].amount) : 1;
+
+  function rowColor(amount) {
+    const t = Math.pow(Math.min(Number(amount) / maxAmt, 1), 0.6);
+    const r = Math.round(253 + t * (192 - 253));
+    const g = Math.round(248 + t * ( 88 - 248));
+    const b = Math.round(245 + t * ( 68 - 245));
+    return `rgb(${r},${g},${b})`;
+  }
+  function textColor(amount) {
+    const t = Math.pow(Math.min(Number(amount) / maxAmt, 1), 0.6);
+    return t > 0.55 ? '#2e1008' : '#3a2010';
+  }
+
+  function saveDeposit() {
+    const v = parseFloat(depositInput);
+    if (!isNaN(v) && v > 0) setDeposit(v);
+    setEditingDeposit(false);
+  }
+  function saveRow(data) {
+    if (rowModal === 'add') {
+      setRows(prev => [...prev, { id: Date.now(), ...data }]);
+    } else {
+      setRows(prev => prev.map(r => r.id === rowModal.id ? { ...r, ...data } : r));
+    }
+    setRowModal(null);
+  }
+  function delRow(id) { setRows(prev => prev.filter(r => r.id !== id)); }
+
+  return h('div', { className:'budget-block' },
+    h('div', { className:'budget-block-head' },
+      h('span', { className:'budget-block-head-title' }, title),
+      h('div', { style:{ display:'flex', alignItems:'center', gap:10 } },
+        h('span', { className:'budget-block-head-total' }, fmt(displayDeposit)),
+        h('button', { className:'budget-block-head-edit', onClick:()=>setEditingDeposit(v=>!v) }, 'Edit')
+      )
+    ),
+
+    editingDeposit && h('div', { className:'deposit-edit-row' },
+      h('label', null, 'Your deposit (£):'),
+      h('input', { type:'number', value:depositInput,
+        onChange:e=>setDepositInput(e.target.value),
+        onKeyDown:e=>e.key==='Enter'&&saveDeposit()
+      }),
+      h('button', { className:'deposit-save-btn', onClick:saveDeposit }, 'Save')
+    ),
+
+    h('div', { className:'budget-row-header' },
+      h('span', null, 'Expense'), h('span', null, 'Monthly'), h('span', null, 'Annual'), h('span', null, '')
+    ),
+
+    sortedRows.map((r) =>
+      h('div', { key:r.id, className:'budget-row',
+        style:{ background: rowColor(r.amount) }
+      },
+        h('span', { className:'budget-row-name', style:{ color: textColor(r.amount) } },
+          r.isPot ? h('span', null, h('span',{style:{fontSize:13,marginRight:5,opacity:0.7}},'⬡'), r.name) : r.name
+        ),
+        h('span', { className:'budget-row-amt', style:{ color: textColor(r.amount) } }, fmt(r.amount)),
+        h('span', { className:'budget-row-amt', style:{ color: textColor(r.amount), opacity:0.7 } }, fmt(r.amount * 12)),
+        h('span', { className:'budget-row-actions' },
+          h('button', { className:'budget-row-btn edit', onClick:()=>setRowModal(r) }, 'Edit'),
+          h('button', { className:'budget-row-btn del',  onClick:()=>delRow(r.id)  }, '×')
+        )
+      )
+    ),
+
+    h('div', { className:'budget-row add-row', onClick:()=>setRowModal('add') },
+      h('span', { style:{ color:'var(--moss)', fontSize:13 } }, '+ Add item'),
+      h('span', null, ''), h('span', null, ''), h('span', null, '')
+    ),
+
+    h('div', { className:'budget-row total' },
+      h('span', { className:'budget-row-name' }, 'Total allocated'),
+      h('span', { className:'budget-row-amt'  }, fmt(total)),
+      h('span', { className:'budget-row-amt'  }, fmt(total * 12)),
+      h('span', null, '')
+    ),
+    h('div', { className:'budget-row remaining' },
+      h('span', { className:'budget-row-name' }, 'Remaining'),
+      h('span', { className:'budget-row-amt'  }, fmt(displayDeposit - total)),
+      h('span', { className:'budget-row-amt'  }, fmt((displayDeposit - total) * 12)),
+      h('span', null, '')
+    ),
+
+    rowModal && h(BudgetRowModal, {
+      row: rowModal === 'add' ? null : rowModal,
+      onSave: saveRow,
+      onClose: () => setRowModal(null)
+    })
+  );
+}
+
+function BudgetPage({ deposits, setDeposits, bills, setBills, joint, setJoint, personal, setPersonal }) {
+  const perPersonTotal = deposits.personal + deposits.bills + deposits.joint;
+
+  return h('div', { className:'page' },
+    h('div', { className:'section-header' },
+      h('h2', { className:'section-title' }, 'Monthly Budget'),
+      h('p', { className:'section-sub' }, 'Edit deposits and line items inline — changes reflect immediately')
+    ),
+
+    h('div', { className:'budget-summary' },
+      h('div', { className:'bs-item' },
+        h('div', { className:'bs-label' }, 'Personal'),
+        h('div', { className:'bs-value' }, fmt(deposits.personal))
+      ),
+      h('div', { className:'bs-item' },
+        h('div', { className:'bs-label' }, 'Bills'),
+        h('div', { className:'bs-value' }, fmt(deposits.bills))
+      ),
+      h('div', { className:'bs-item' },
+        h('div', { className:'bs-label' }, 'Joint'),
+        h('div', { className:'bs-value' }, fmt(deposits.joint))
+      ),
+      h('div', { className:'bs-item total' },
+        h('div', { className:'bs-label' }, 'Per person / month'),
+        h('div', { className:'bs-value' }, fmt(perPersonTotal))
+      )
+    ),
+
+    h('div', { className:'budget-grid' },
+      h(BudgetBlock, {
+        title:'Bills Pot', deposit:deposits.bills, rows:bills,
+        setDeposit:v=>setDeposits(d=>({...d,bills:v})), setRows:setBills
+      }),
+      h(BudgetBlock, {
+        title:'Joint Expenses', deposit:deposits.joint, rows:joint,
+        setDeposit:v=>setDeposits(d=>({...d,joint:v})), setRows:setJoint
+      }),
+      h(BudgetBlock, {
+        title:'Personal Spending', deposit:deposits.personal, rows:personal,
+        setDeposit:v=>setDeposits(d=>({...d,personal:v})), setRows:setPersonal
+      })
+    )
+  );
+}
+
+// ── ACCOUNTS PAGE ─────────────────────────────────────────────────────────────
+
+const INIT_PAY = {
+  salaryAnnual:   42000,
+  incomeTaxAnnual:7486,
+  niAnnual:       3300,
+  pensionPct:     5,       // % of gross
+};
+
+function PayInfoPanel({ pay, setPay }) {
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState({ ...pay });
+
+  const salaryMonthly  = pay.salaryAnnual / 12;
+  const taxMonthly     = pay.incomeTaxAnnual / 12;
+  const niMonthly      = pay.niAnnual / 12;
+  const pensionMonthly = (pay.salaryAnnual * (pay.pensionPct / 100)) / 12;
+  const takeHomeMonthly = salaryMonthly - taxMonthly - niMonthly - pensionMonthly;
+
+  function save() {
+    setPay({
+      salaryAnnual:   parseFloat(draft.salaryAnnual)   || 0,
+      incomeTaxAnnual:parseFloat(draft.incomeTaxAnnual)|| 0,
+      niAnnual:       parseFloat(draft.niAnnual)       || 0,
+      pensionPct:     parseFloat(draft.pensionPct)     || 0,
+    });
+    setEditing(false);
+  }
+
+  const rows = [
+    { label:'Gross salary',     annual: pay.salaryAnnual,    monthly: salaryMonthly,   highlight: false },
+    { label:'Income tax',       annual:-pay.incomeTaxAnnual, monthly:-taxMonthly,      highlight: false, deduction: true },
+    { label:'National Insurance',annual:-pay.niAnnual,       monthly:-niMonthly,       highlight: false, deduction: true },
+    { label:'Pension ('+pay.pensionPct+'%)', annual:-(pay.salaryAnnual*pay.pensionPct/100), monthly:-pensionMonthly, highlight: false, deduction: true },
+    { label:'Take-home',        annual: takeHomeMonthly*12,  monthly: takeHomeMonthly, highlight: true },
+  ];
+
+  return h('div', { className:'pay-panel' },
+    h('div', { className:'pay-panel-head' },
+      h('span', { className:'pay-panel-title' }, 'Pay Information'),
+      h('button', { className:'budget-block-head-edit', style:{ marginLeft:'auto' },
+        onClick:()=>{ setDraft({...pay}); setEditing(v=>!v); } }, editing ? 'Cancel' : 'Edit')
+    ),
+
+    editing && h('div', { className:'pay-edit-grid' },
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Gross annual salary (£)'),
+        h('input', { type:'number', className:'form-input', value:draft.salaryAnnual,
+          onChange:e=>setDraft(d=>({...d,salaryAnnual:e.target.value})) })
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Income tax / year (£)'),
+        h('input', { type:'number', className:'form-input', value:draft.incomeTaxAnnual,
+          onChange:e=>setDraft(d=>({...d,incomeTaxAnnual:e.target.value})) })
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'National Insurance / year (£)'),
+        h('input', { type:'number', className:'form-input', value:draft.niAnnual,
+          onChange:e=>setDraft(d=>({...d,niAnnual:e.target.value})) })
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Pension contribution (% of gross)'),
+        h('input', { type:'number', className:'form-input', value:draft.pensionPct,
+          onChange:e=>setDraft(d=>({...d,pensionPct:e.target.value})) })
+      ),
+      h('div', { style:{ textAlign:'right', marginTop:4 } },
+        h('button', { className:'btn-save', onClick:save }, 'Save')
+      )
+    ),
+
+    h('div', { className:'pay-table' },
+      h('div', { className:'pay-thead' },
+        h('span', null, ''), h('span', null, 'Annual'), h('span', null, 'Monthly')
+      ),
+      rows.map(r =>
+        h('div', { key:r.label, className:'pay-row'+(r.highlight?' pay-row-total':'')+(r.deduction?' pay-row-deduction':'') },
+          h('span', { className:'pay-row-label' }, r.label),
+          h('span', { className:'pay-row-val' }, fmt(Math.abs(r.annual))),
+          h('span', { className:'pay-row-val' }, fmt(Math.abs(r.monthly)))
+        )
+      )
+    )
+  );
+}
+
+// Find the entry closest to N months ago
+function entryNMonthsAgo(entries, months) {
+  const target = new Date(TODAY);
+  target.setMonth(target.getMonth() - months);
+  const targetMs = target.getTime();
+  let best = null, bestDiff = Infinity;
+  for (const e of entries) {
+    const diff = Math.abs(new Date(e.iso).getTime() - targetMs);
+    if (diff < bestDiff) { bestDiff = diff; best = e; }
+  }
+  return best;
+}
+
+function AddEntryModal({ label, onSave, onClose }) {
+  const [date, setDate]   = useState(TODAY.toISOString().split('T')[0]);
+  const [value, setValue] = useState('');
+  function save() {
+    const v = parseFloat(value);
+    if (!date || isNaN(v)) return;
+    const d = new Date(date);
+    const pretty = d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+    onSave({ iso: date, date: pretty, value: v });
+  }
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, 'Add Balance — ' + label),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label', { className:'form-label' }, 'Date'),
+          h('input', { type:'date', className:'form-input', value:date, onChange:e=>setDate(e.target.value) })
+        ),
+        h('div', null,
+          h('label', { className:'form-label' }, 'Balance (£)'),
+          h('input', { type:'number', className:'form-input', value, placeholder:'e.g. 5250.00',
+            onChange:e=>setValue(e.target.value),
+            onKeyDown:e=>e.key==='Enter'&&save()
+          })
+        )
+      ),
+      h('div', { className:'modal-actions' },
+        h('button', { className:'btn-cancel', onClick:onClose }, 'Cancel'),
+        h('button', { className:'btn-save', onClick:save }, 'Add Entry')
+      )
+    )
+  );
+}
+
+function AccountsPage() {
+  const [pay,      setPay]     = useState(INIT_PAY);
+  const [accounts, setAccounts]= useState(INIT_ACCOUNTS);
+  const [addingTo, setAddingTo]= useState(null); // label string | null
+
+  function addEntry(label, entry) {
+    setAccounts(prev => prev.map(a => {
+      if (a.label !== label) return a;
+      const entries = [entry, ...a.entries].sort((x,y) => y.iso.localeCompare(x.iso));
+      return { ...a, entries };
+    }));
+    setAddingTo(null);
+  }
+
+  const total = accounts.reduce((s,a) => s + a.entries[0].value, 0);
+
+  return h('div', { className:'page' },
+    h('div', { className:'section-header' },
+      h('h2', { className:'section-title' }, 'Financial Accounts'),
+      h('p', { className:'section-sub' }, 'Tracked balances · 3, 6 & 12 month performance')
+    ),
+
+    h('div', { className:'acc-cards' },
+      accounts.map(a => {
+        const curr  = a.entries[0].value;
+        const e3m   = entryNMonthsAgo(a.entries, 3);
+        const e6m   = entryNMonthsAgo(a.entries, 6);
+        const e12m  = entryNMonthsAgo(a.entries, 12);
+        const p3  = e3m  && e3m.iso  !== a.entries[0].iso ? pctChange(curr, e3m.value)  : null;
+        const p6  = e6m  && e6m.iso  !== a.entries[0].iso ? pctChange(curr, e6m.value)  : null;
+        const p12 = e12m && e12m.iso !== a.entries[0].iso ? pctChange(curr, e12m.value) : null;
+        return h('div', { key:a.label, className:'acc-card' },
+          h('div', { className:'acc-card-name' }, a.label),
+          h('div', { className:'acc-card-val' }, fmt(curr)),
+          h('div', { className:'acc-card-periods' },
+            p3  != null && h('span', { className:'period-badge '+(p3 >=0?'pos':'neg') }, '3m '+(p3 >=0?'+':'')+p3.toFixed(1)+'%'),
+            p6  != null && h('span', { className:'period-badge '+(p6 >=0?'pos':'neg') }, '6m '+(p6 >=0?'+':'')+p6.toFixed(1)+'%'),
+            p12 != null && h('span', { className:'period-badge '+(p12>=0?'pos':'neg') }, '12m '+(p12>=0?'+':'')+p12.toFixed(1)+'%'),
+          ),
+          h('button', { className:'acc-add-btn', onClick:()=>setAddingTo(a.label) }, '+ Add balance')
         );
-      }
+      })
+    ),
 
-      ReactDOM.createRoot(document.getElementById("root")).render(h(App));
-    </script>
-  </body>
+    h('div', { className:'acc-total-bar' },
+      h('span', { className:'acc-total-label' }, 'Total Portfolio'),
+      h('span', { className:'acc-total-val' }, fmt(total))
+    ),
+
+    h('div', { className:'acc-tables' },
+      accounts.map(account =>
+        h('div', { key:account.label, className:'acc-table' },
+          h('div', { className:'acc-table-title' },
+            h('span', { className:'acc-table-name' }, account.label),
+            h('span', { className:'acc-table-latest' }, fmt(account.entries[0].value))
+          ),
+          h('div', { className:'acc-thead' },
+            h('span',null,'Date'), h('span',null,'Balance'),
+            h('span',null,'Change £'), h('span',null,'Change %')
+          ),
+          account.entries.map((entry,i) => {
+            const prev = account.entries[i+1];
+            const diff = prev ? entry.value - prev.value : null;
+            const pct  = prev ? pctChange(entry.value, prev.value) : null;
+            const pos  = diff!=null ? diff>=0 : null;
+            return h('div', { key:entry.iso, className:'acc-row' },
+              h('span', { className:'date' }, entry.date),
+              h('span', null, fmt(entry.value)),
+              h('span', { className:diff==null?'dim':pos?'pos':'neg' },
+                diff!=null?(pos?'+':'')+fmt(diff):'—'),
+              h('span', { className:pct==null?'dim':pos?'pos':'neg' },
+                pct!=null?(pct>=0?'+':'')+pct.toFixed(2)+'%':'—')
+            );
+          })
+        )
+      )
+    ),
+
+    h('div', { style:{ marginTop:24 } },
+      h(PayInfoPanel, { pay, setPay })
+    ),
+
+    addingTo && h(AddEntryModal, {
+      label: addingTo,
+      onSave: (entry) => addEntry(addingTo, entry),
+      onClose: () => setAddingTo(null)
+    })
+  );
+}
+
+// ── TRACKER PAGE ──────────────────────────────────────────────────────────────
+
+function TrackerItemModal({ item, onSave, onClose }) {
+  const [name,     setName]    = useState(item ? item.name     : '');
+  const [provider, setProv]    = useState(item ? item.provider : '');
+  const [cost,     setCost]    = useState(item ? (item.cost != null ? String(item.cost) : '') : '');
+  const [lastDone, setLast]    = useState(item ? item.lastDone||'' : '');
+  const [renewal,  setRenewal] = useState(item ? item.renewal||''  : '');
+  const [notes,    setNotes]   = useState(item ? item.notes    : '');
+
+  function save() {
+    if (!name.trim()) return;
+    onSave({
+      name:     name.trim(),
+      provider: provider.trim(),
+      cost:     cost !== '' ? parseFloat(cost) : null,
+      lastDone: lastDone || null,
+      renewal:  renewal  || null,
+      notes:    notes.trim(),
+    });
+  }
+
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', style:{width:500}, onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, item ? 'Edit Item' : 'Add Item'),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label', { className:'form-label' }, 'Name'),
+          h('input', { className:'form-input', value:name, onChange:e=>setName(e.target.value) })
+        ),
+        h('div', null,
+          h('label', { className:'form-label' }, 'Provider / reference'),
+          h('input', { className:'form-input', value:provider, onChange:e=>setProv(e.target.value) })
+        )
+      ),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label', { className:'form-label' }, 'Cost (£, optional)'),
+          h('input', { type:'number', className:'form-input', value:cost, placeholder:'—',
+            onChange:e=>setCost(e.target.value) })
+        ),
+        h('div', null,
+          h('label', { className:'form-label' }, 'Last done'),
+          h('input', { type:'date', className:'form-input', value:lastDone, onChange:e=>setLast(e.target.value) })
+        )
+      ),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label', { className:'form-label' }, 'Due / renewal date'),
+          h('input', { type:'date', className:'form-input', value:renewal, onChange:e=>setRenewal(e.target.value) })
+        ),
+        h('div', null,
+          h('label', { className:'form-label' }, 'Notes'),
+          h('input', { className:'form-input', value:notes, onChange:e=>setNotes(e.target.value) })
+        )
+      ),
+      h('div', { className:'modal-actions' },
+        h('button', { className:'btn-cancel', onClick:onClose }, 'Cancel'),
+        h('button', { className:'btn-save', onClick:save }, item ? 'Save Changes' : 'Add Item')
+      )
+    )
+  );
+}
+
+function TrackerPage() {
+  const [items,  setItems]  = useState(TRACKER_ITEMS.map((t,i)=>({...t, id:i+1})));
+  const [modal,  setModal]  = useState(null); // null | 'add' | item
+
+  function saveItem(data) {
+    if (modal === 'add') {
+      setItems(prev => [...prev, { ...data, id: Date.now() }]);
+    } else {
+      setItems(prev => prev.map(it => it.id === modal.id ? { ...it, ...data } : it));
+    }
+    setModal(null);
+  }
+  function delItem(id) { setItems(prev => prev.filter(it => it.id !== id)); }
+
+  const sorted = [...items].sort((a,b) => {
+    const da = daysBetween(a.renewal)??9999;
+    const db = daysBetween(b.renewal)??9999;
+    return da-db;
+  });
+
+  return h('div', { className:'page' },
+    h('div', { className:'hk-toolbar' },
+      h('div', { className:'section-header', style:{marginBottom:0} },
+        h('h2', { className:'section-title' }, 'Renewals & Tracker'),
+        h('p', { className:'section-sub' }, 'Insurance, services, and scheduled tasks')
+      ),
+      h('button', { className:'hk-add-btn', onClick:()=>setModal('add') }, h('span',null,'+'), 'Add Item')
+    ),
+    h('div', { className:'tracker-grid' },
+      sorted.map(item => {
+        const days=daysBetween(item.renewal), st=rnStatus(days), lbl=rnLabel(days);
+        return h('div', { key:item.id,
+          className:'tracker-item'+(st==='overdue'?' is-due':st==='due-soon'?' is-soon':'')
+        },
+          h('div', { className:'tracker-item-top' },
+            h('div', null,
+              h('div', { className:'tracker-item-name' }, item.name),
+              item.provider && h('div', { className:'tracker-item-provider' }, item.provider)
+            ),
+            h('div', { style:{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6} },
+              item.cost != null && h('div', { className:'tracker-item-cost' }, fmt(item.cost)),
+              h('div', { style:{display:'flex', gap:6} },
+                h('button', { className:'hk-icon-btn', onClick:()=>setModal(item) }, 'Edit'),
+                h('button', { className:'hk-icon-btn danger', onClick:()=>delItem(item.id) }, '×')
+              )
+            )
+          ),
+          (item.lastDone||item.renewal) && h('div', { className:'tracker-dates' },
+            item.lastDone && h('div',null,
+              h('div',{className:'tracker-date-lbl'},'Last done'),
+              h('div',{className:'tracker-date-val'},fmtDate(item.lastDone))
+            ),
+            item.renewal && h('div',null,
+              h('div',{className:'tracker-date-lbl'},'Due / renewal'),
+              h('div',{className:'tracker-date-val'},fmtDate(item.renewal))
+            )
+          ),
+          st && h(Badge,{status:st,label:lbl}),
+          item.notes && h('div',{className:'tracker-notes'},item.notes)
+        );
+      })
+    ),
+    modal && h(TrackerItemModal, {
+      item:    modal === 'add' ? null : modal,
+      onSave:  saveItem,
+      onClose: ()=>setModal(null)
+    })
+  );
+}
+
+// ── HOME KEEPING ──────────────────────────────────────────────────────────────
+
+function HKModal({ task, onSave, onClose }) {
+  const [name, setName]   = useState(task ? task.name      : '');
+  const [freq, setFreq]   = useState(task ? task.frequency : 'weekly');
+  const [last, setLast]   = useState(task ? task.lastDone||'' : '');
+  const [next, setNext]   = useState(task ? task.nextDue||'' : '');
+
+  function save() {
+    if (!name.trim()) return;
+    onSave({ name:name.trim(), frequency:freq, lastDone:last||null, nextDue:next||null });
+  }
+
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, task ? 'Edit Task' : 'Add Task'),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Task name'),
+        h('input', { className:'form-input', value:name,
+          placeholder:'e.g. Hoover lounge',
+          onChange:e=>setName(e.target.value),
+          onKeyDown:e=>e.key==='Enter'&&save()
+        })
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Frequency'),
+        h('select', { className:'form-select', value:freq, onChange:e=>setFreq(e.target.value) },
+          Object.entries(FREQ_LABELS).map(([k,v]) => h('option',{key:k,value:k},v))
+        )
+      ),
+      h('div', { className:'form-row-2' },
+        h('div', null,
+          h('label', { className:'form-label' }, 'Last completed'),
+          h('input', { type:'date', className:'form-input', value:last, onChange:e=>setLast(e.target.value) })
+        ),
+        h('div', null,
+          h('label', { className:'form-label' }, 'Next due (override)'),
+          h('input', { type:'date', className:'form-input', value:next, onChange:e=>setNext(e.target.value) })
+        )
+      ),
+      h('p', { style:{ fontSize:11, color:'var(--text-dim)', marginTop:-8, marginBottom:4 } },
+        'Set "Next due" to pin a specific date, otherwise calculated from last completed.'
+      ),
+      h('div', { className:'modal-actions' },
+        h('button', { className:'btn-cancel', onClick:onClose }, 'Cancel'),
+        h('button', { className:'btn-save', onClick:save }, task ? 'Save Changes' : 'Add Task')
+      )
+    )
+  );
+}
+
+function HomeKeepingPage({ tasks, setTasks }) {
+  const [modal, setModal] = useState(null); // null | 'add' | task
+
+  function saveTask(data) {
+    if (modal === 'add') {
+      setTasks(prev => [...prev, { id:Date.now(), ...data }]);
+    } else {
+      setTasks(prev => prev.map(t => t.id===modal.id ? { ...t, ...data } : t));
+    }
+    setModal(null);
+  }
+  function markDone(id) {
+    const todayStr = TODAY.toISOString().split('T')[0];
+    setTasks(prev => prev.map(t => t.id===id ? { ...t, lastDone:todayStr, nextDue:null } : t));
+  }
+  function del(id) { setTasks(prev => prev.filter(t=>t.id!==id)); }
+
+  const sorted = [...tasks].sort((a,b) => {
+    const order = { overdue:0, 'due-soon':1, ok:2 };
+    const sa=taskStatus(a), sb=taskStatus(b);
+    if (sa!==sb) return order[sa]-order[sb];
+    return taskDays(a)-taskDays(b);
+  });
+
+  const overdueN = sorted.filter(t=>taskStatus(t)==='overdue').length;
+  const dueSoonN = sorted.filter(t=>taskStatus(t)==='due-soon').length;
+  const subtext  = [
+    overdueN>0?`${overdueN} overdue`:'',
+    dueSoonN>0?`${dueSoonN} due soon`:'',
+  ].filter(Boolean).join(' · ') || 'All tasks up to date';
+
+  return h('div', { className:'page' },
+    h('div', { className:'hk-toolbar' },
+      h('div', { className:'section-header', style:{ marginBottom:0 } },
+        h('h2', { className:'section-title' }, 'Home Keeping'),
+        h('p', { className:'section-sub' }, subtext)
+      ),
+      h('button', { className:'hk-add-btn', onClick:()=>setModal('add') },
+        h('span', null, '+'), 'Add Task'
+      )
+    ),
+    h('div', { className:'hk-tasks' },
+      sorted.length===0 && h('p',{style:{color:'var(--text-dim)',padding:'16px 0'}},'No tasks yet. Add one above.'),
+      sorted.map(task => {
+        const st  = taskStatus(task);
+        const lbl = taskLabel(task);
+        const due = taskEffectiveDue(task);
+        return h('div', { key:task.id, className:`hk-task ${st}` },
+          h('div', { className:'hk-check', title:'Mark done today', onClick:()=>markDone(task.id) }),
+          h('div', { className:'hk-task-body' },
+            h('div', { className:'hk-task-name' }, task.name),
+            h('div', { className:'hk-task-meta' },
+              h('span',null,FREQ_LABELS[task.frequency]),
+              task.lastDone && h('span',null,'Done: '+fmtDate(task.lastDone)),
+              due && h('span',null,'Due: '+fmtDate(due)),
+              task.nextDue && h('span',{style:{color:'var(--amber)'}},'📌 Pinned date')
+            )
+          ),
+          h('div', { className:'hk-task-right' },
+            h(Badge,{status:st,label:lbl}),
+            h('button',{className:'hk-icon-btn',onClick:()=>setModal(task)},'Edit'),
+            h('button',{className:'hk-icon-btn danger',onClick:()=>del(task.id)},'×')
+          )
+        );
+      })
+    ),
+    modal && h(HKModal, {
+      task: modal==='add' ? null : modal,
+      onSave: saveTask,
+      onClose: ()=>setModal(null)
+    })
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [tab,      setTab]      = useState('Home');
+  const [hkTasks,  setHkTasks]  = useState(DEFAULT_HK);
+  const [deposits, setDeposits] = useState({
+    bills:   INIT_BILLS_DEPOSIT,
+    joint:   INIT_JOINT_DEPOSIT,
+    personal:INIT_PERSONAL_BUDGET,
+  });
+  const [bills,    setBills]    = useState(INIT_BILLS);
+  const [joint,    setJoint]    = useState(INIT_JOINT);
+  const [personal, setPersonal] = useState(INIT_PERSONAL);
+
+  return h('div', null,
+    h(Nav, { tab, setTab }),
+    tab==='Home'         && h(HomePage,        { hkTasks }),
+    tab==='Budget'       && h(BudgetPage,      { deposits, setDeposits, bills, setBills, joint, setJoint, personal, setPersonal }),
+    tab==='Accounts'     && h(AccountsPage),
+    tab==='Tracker'      && h(TrackerPage),
+    tab==='Home Keeping' && h(HomeKeepingPage, { tasks:hkTasks, setTasks:setHkTasks })
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
 </html>
