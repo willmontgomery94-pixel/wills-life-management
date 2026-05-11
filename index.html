@@ -592,6 +592,54 @@
     /* ── BUDGET FREQ ── */
     .freq-preview { font-size: 12px; color: var(--text-dim); margin-top: -8px; margin-bottom: 12px; }
 
+    /* ── TAX PAGE ── */
+    .tax-dates-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:8px; }
+    .tax-date-card {
+      background:var(--surface); border:1px solid var(--border-soft);
+      border-radius:var(--radius-lg); padding:16px 18px;
+      border-left:3px solid var(--lime); display:flex; flex-direction:column; gap:10px;
+    }
+    .tax-date-card.tax-card-urgent { border-left-color:var(--red); }
+    .tax-date-card.tax-card-soon   { border-left-color:var(--amber); }
+    .tax-date-card.tax-card-past   { border-left-color:var(--border); opacity:0.65; }
+    .tax-date-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+    .tax-date-label { font-size:13px; font-weight:500; color:var(--forest); }
+    .tax-date-note  { font-size:11px; color:var(--text-dim); margin-top:3px; }
+    .tax-date-footer { display:flex; justify-content:space-between; align-items:center; }
+    .tax-date-iso   { font-size:12px; color:var(--text-muted); }
+    .tax-date-actions { display:flex; gap:4px; flex-shrink:0; }
+    .tax-docs-list  { display:flex; flex-direction:column; gap:8px; }
+    .tax-doc-row {
+      display:flex; align-items:center; gap:14px;
+      background:var(--surface); border:1px solid var(--border-soft);
+      border-radius:var(--radius); padding:12px 18px;
+    }
+    .tax-doc-row.tax-doc-done { opacity:0.55; }
+    .tax-doc-check {
+      width:22px; height:22px; border-radius:50%;
+      border:2px solid var(--moss); display:flex; align-items:center; justify-content:center;
+      font-size:12px; color:var(--fern); cursor:pointer; flex-shrink:0;
+      background:var(--mint); font-weight:600;
+    }
+    .tax-doc-body  { flex:1; }
+    .tax-doc-label { font-size:14px; color:var(--text); }
+    .tax-doc-detail{ font-size:11px; color:var(--text-dim); margin-top:2px; }
+
+    /* ── WATER BILLS ── */
+    .water-bill-row {
+      display:flex; align-items:center; gap:12px;
+      background:var(--surface2); border:1px solid var(--border-soft);
+      border-radius:var(--radius); padding:12px 16px;
+    }
+    .water-bill-dates { flex:1; font-size:13px; color:var(--text-muted); }
+    .water-bill-amounts { display:flex; gap:12px; align-items:baseline; }
+    .water-bill-charge { font-size:15px; color:var(--forest); font-weight:500; }
+    .water-bill-m3     { font-size:11px; color:var(--text-dim); }
+
+    @media (max-width:860px) {
+      .tax-dates-grid { grid-template-columns:1fr; }
+    }
+
     /* ── NOTES ── */
     .note-panel { margin-top: 0; }
     .note-textarea {
@@ -611,12 +659,15 @@
 
     /* ── INCOME BAR ── */
     .income-bar {
-      display: flex; border-radius: var(--radius-lg); overflow: hidden;
+      display: flex; border-radius: var(--radius-lg);
       border: 1px solid var(--border-soft); margin-bottom: 20px;
       background: var(--surface);
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .income-bar::-webkit-scrollbar { display: none; }
     .income-bar-item {
-      flex: 1; padding: 16px 20px;
+      flex: 0 0 auto; min-width: 130px; padding: 16px 20px;
       border-right: 1px solid var(--border-soft);
     }
     .income-bar-item:last-child { border-right: none; }
@@ -907,7 +958,7 @@ function Badge({ status, label }) {
 }
 
 function Nav({ tab, setTab }) {
-  const tabs = ['Home','Budget','Accounts','Tracker','Home Keeping','Garden'];
+  const tabs = ['Home','Budget','Accounts','Tracker','Home Keeping','Garden','Tax'];
   return h('nav', { className:'nav' },
     h('div', { className:'nav-brand' },
       'W', h('span', { className:'nav-brand-amp' }, '&'), 'R',
@@ -1214,7 +1265,8 @@ function BudgetBlock({ title, deposit, rows, setDeposit, setRows }) {
   );
 }
 
-function BudgetPage({ deposits, setDeposits, bills, setBills, joint, setJoint, personal, setPersonal, pay }) {
+function BudgetPage({ deposits, setDeposits, bills, setBills, joint, setJoint, personal, setPersonal, pay, waterBills, setWaterBills }) {
+  const [showWater, setShowWater] = useState(false);
   const perPersonTotal = deposits.personal + deposits.bills + deposits.joint;
 
   // Income figures from pay panel
@@ -1235,10 +1287,15 @@ function BudgetPage({ deposits, setDeposits, bills, setBills, joint, setJoint, p
   const netSaving     = notBudgeted + totalRemaining;
 
   return h('div', { className:'page' },
-    h('div', { className:'section-header' },
-      h('h2', { className:'section-title' }, 'Monthly Budget'),
-      h('p', { className:'section-sub' }, 'Edit deposits and line items inline — changes reflect immediately')
+    h('div', { className:'hk-toolbar' },
+      h('div', { className:'section-header', style:{marginBottom:0} },
+        h('h2', { className:'section-title' }, 'Monthly Budget'),
+        h('p', { className:'section-sub' }, 'Edit deposits and line items inline — changes reflect immediately')
+      ),
+      h('button', { className:'hk-add-btn', style:{background:'#3a6e8a'},
+        onClick:()=>setShowWater(true) }, '💧 Water')
     ),
+    showWater && h(WaterModal, { onClose:()=>setShowWater(false), waterBills, setWaterBills }),
 
     // Income overview bar
     h('div', { className:'income-bar' },
@@ -1713,6 +1770,8 @@ function TrackerItemModal({ item, onSave, onClose }) {
   const [lastDone, setLast]    = useState(item ? item.lastDone||''  : '');
   const [renewal,  setRenewal] = useState(item ? item.renewal||''   : '');
   const [notes,    setNotes]   = useState(item ? item.notes         : '');
+  const [schedNum, setSchedNum]= useState(item ? String(item.schedNum||1)    : '1');
+  const [schedUnit,setSchedUnit]=useState(item ? (item.schedUnit||'months')  : 'months');
   const [linkName, setLinkName]= useState(item ? item.linkName||''  : '');
   const [linkUrl,  setLinkUrl] = useState(item ? item.linkUrl||''   : '');
   const [username, setUsername]= useState(item ? item.username||''  : '');
@@ -1727,6 +1786,8 @@ function TrackerItemModal({ item, onSave, onClose }) {
       lastDone: lastDone || null,
       renewal:  renewal  || null,
       notes:    notes.trim(),
+      schedNum: parseInt(schedNum)||1,
+      schedUnit: schedUnit,
       linkName: linkName.trim(),
       linkUrl:  linkUrl.trim(),
       username: username.trim(),
@@ -1765,6 +1826,21 @@ function TrackerItemModal({ item, onSave, onClose }) {
         h('div', null,
           h('label', { className:'form-label' }, 'Notes'),
           h('input', { className:'form-input', value:notes, onChange:e=>setNotes(e.target.value) })
+        )
+      ),
+      h('div', { className:'form-row' },
+        h('label', { className:'form-label' }, 'Repeat schedule (optional)'),
+        h('div', { style:{display:'flex',gap:8,alignItems:'center'} },
+          h('span',{style:{fontSize:13,color:'var(--text-dim)'}},'Every'),
+          h('input',{type:'number',min:1,className:'form-input',style:{width:70},
+            value:schedNum, onChange:e=>setSchedNum(e.target.value)}),
+          h('select',{className:'form-select',style:{width:110},value:schedUnit,
+            onChange:e=>setSchedUnit(e.target.value)},
+            h('option',{value:'days'},'Days'),
+            h('option',{value:'weeks'},'Weeks'),
+            h('option',{value:'months'},'Months'),
+            h('option',{value:'years'},'Years')
+          )
         )
       ),
       h('div', { style:{borderTop:'1px solid var(--border-soft)',margin:'8px 0 16px',paddingTop:16} },
@@ -2176,6 +2252,323 @@ function GardenPage({ plants, setPlants }) {
   );
 }
 
+
+// ── TAX & WATER DATA ─────────────────────────────────────────────────────────
+
+const INIT_TAX_DATES = [
+  { id:1,  iso:'2026-01-31', label:'Self Assessment deadline 2024–25',              note:'Deadline to submit online' },
+  { id:2,  iso:'2026-04-06', label:'MTD for Income Tax records must start',          note:'Must use MTD software from this date' },
+  { id:3,  iso:'2026-08-07', label:'1st quarterly update deadline',                  note:'Q1 2026–27' },
+  { id:4,  iso:'2026-11-07', label:'2nd quarterly update deadline',                  note:'Q2 2026–27' },
+  { id:5,  iso:'2027-01-31', label:'Self Assessment deadline 2025–26 (normal)',      note:'Standard submission' },
+  { id:6,  iso:'2027-02-07', label:'3rd quarterly update deadline',                  note:'Q3 2026–27' },
+  { id:7,  iso:'2027-05-07', label:'4th quarterly update deadline',                  note:'Q4 2026–27' },
+  { id:8,  iso:'2027-08-07', label:'1st quarterly update deadline 2027–28',          note:'Q1 2027–28' },
+  { id:9,  iso:'2027-11-07', label:'2nd quarterly update deadline 2027–28',          note:'Q2 2027–28' },
+  { id:10, iso:'2028-01-31', label:'MTD Self Assessment deadline 2026–27',           note:'Submit straight from MTD software' },
+  { id:11, iso:'2028-02-07', label:'3rd quarterly update deadline 2027–28',          note:'Q3 2027–28' },
+  { id:12, iso:'2028-05-07', label:'4th quarterly update deadline 2027–28',          note:'Q4 2027–28' },
+];
+
+const INIT_TAX_DOCS = [
+  { id:1, label:'P60',                        detail:'6 April 2025 to 5 April 2026',                  done:false },
+  { id:2, label:'Oakglen tax report',          detail:'6 April 2025 to 5 April 2026',                  done:false },
+  { id:3, label:'Credit interest summary',     detail:'WJ Montgomery — 6 April 2024 to 5 April 2025',  done:false },
+  { id:4, label:'AJ Bell ISA',                 detail:'No documents required',                          done:true  },
+  { id:5, label:'Schedule for quarterly MTD',  detail:'Online tax quarterly submission schedule',       done:false },
+];
+
+// ── TAX PAGE ─────────────────────────────────────────────────────────────────
+
+function TaxDateModal({ date, onSave, onClose }) {
+  const [iso,   setIso]  = useState(date ? date.iso   : '');
+  const [label, setLabel]= useState(date ? date.label : '');
+  const [note,  setNote] = useState(date ? date.note  : '');
+  function save() {
+    if (!iso || !label.trim()) return;
+    onSave({ iso, label:label.trim(), note:note.trim() });
+  }
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, date ? 'Edit Date' : 'Add Key Date'),
+      h('div', { className:'form-row' },
+        h('label',{className:'form-label'},'Date'),
+        h('input',{type:'date',className:'form-input',value:iso,onChange:e=>setIso(e.target.value)})
+      ),
+      h('div', { className:'form-row' },
+        h('label',{className:'form-label'},'Event'),
+        h('input',{className:'form-input',value:label,onChange:e=>setLabel(e.target.value)})
+      ),
+      h('div', { className:'form-row' },
+        h('label',{className:'form-label'},'Note'),
+        h('input',{className:'form-input',value:note,onChange:e=>setNote(e.target.value)})
+      ),
+      h('div',{className:'modal-actions'},
+        h('button',{className:'btn-cancel',onClick:onClose},'Cancel'),
+        h('button',{className:'btn-save',onClick:save},'Save')
+      )
+    )
+  );
+}
+
+function TaxDocModal({ doc, onSave, onClose }) {
+  const [label,  setLabel] = useState(doc ? doc.label  : '');
+  const [detail, setDetail]= useState(doc ? doc.detail : '');
+  function save() {
+    if (!label.trim()) return;
+    onSave({ label:label.trim(), detail:detail.trim(), done: doc ? doc.done : false });
+  }
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', onClick:e=>e.stopPropagation() },
+      h('div', { className:'modal-title' }, doc ? 'Edit Document' : 'Add Document'),
+      h('div', { className:'form-row' },
+        h('label',{className:'form-label'},'Document name'),
+        h('input',{className:'form-input',value:label,onChange:e=>setLabel(e.target.value)})
+      ),
+      h('div', { className:'form-row' },
+        h('label',{className:'form-label'},'Detail / period'),
+        h('input',{className:'form-input',value:detail,onChange:e=>setDetail(e.target.value)})
+      ),
+      h('div',{className:'modal-actions'},
+        h('button',{className:'btn-cancel',onClick:onClose},'Cancel'),
+        h('button',{className:'btn-save',onClick:save},'Save')
+      )
+    )
+  );
+}
+
+function TaxPage({ taxDates, taxDocs, setTaxDates, setTaxDocs, onSave }) {
+  const [dateModal, setDateModal] = useState(null); // null|'new'|date
+  const [docModal,  setDocModal]  = useState(null);
+
+  function saveDate(data) {
+    let next;
+    if (dateModal === 'new') {
+      next = [...taxDates, { ...data, id:Date.now() }].sort((a,b)=>a.iso.localeCompare(b.iso));
+    } else {
+      next = taxDates.map(d => d.id===dateModal.id ? {...d,...data} : d);
+    }
+    setTaxDates(next); onSave(next, taxDocs); setDateModal(null);
+  }
+  function delDate(id) {
+    const next = taxDates.filter(d=>d.id!==id);
+    setTaxDates(next); onSave(next, taxDocs);
+  }
+  function saveDoc(data) {
+    let next;
+    if (docModal === 'new') {
+      next = [...taxDocs, { ...data, id:Date.now() }];
+    } else {
+      next = taxDocs.map(d => d.id===docModal.id ? {...d,...data} : d);
+    }
+    setTaxDocs(next); onSave(taxDates, next); setDocModal(null);
+  }
+  function delDoc(id) {
+    const next = taxDocs.filter(d=>d.id!==id);
+    setTaxDocs(next); onSave(taxDates, next);
+  }
+  function toggleDoc(id) {
+    const next = taxDocs.map(d => d.id===id ? {...d,done:!d.done} : d);
+    setTaxDocs(next); onSave(taxDates, next);
+  }
+
+  // Sort dates ascending, annotate with urgency
+  const sorted = [...taxDates].sort((a,b)=>a.iso.localeCompare(b.iso)).map(d => {
+    const days = daysBetween(d.iso);
+    const past = days !== null && days < 0;
+    const warn1m = days !== null && days >= 0 && days <= 30;
+    const warn1w = days !== null && days >= 0 && days <= 7;
+    const st = past ? 'overdue' : warn1w ? 'overdue' : warn1m ? 'due-soon' : 'ok';
+    const lbl = days === null ? null : days < 0 ? `${Math.abs(days)}d ago`
+      : days === 0 ? 'Today' : `In ${days}d`;
+    return { ...d, days, st, lbl, past };
+  });
+
+  const upcoming = sorted.filter(d => !d.past);
+  const past     = sorted.filter(d =>  d.past);
+
+  return h('div', { className:'page' },
+    // Key Dates section
+    h('div', { className:'hk-toolbar' },
+      h('div', { className:'section-header', style:{marginBottom:0} },
+        h('h2', { className:'section-title' }, '📋 Tax'),
+        h('p', { className:'section-sub' }, 'Key dates, document checklist, and financial records')
+      ),
+      h('button', { className:'hk-add-btn', onClick:()=>setDateModal('new') }, h('span',null,'+'), 'Add Date')
+    ),
+
+    h('div', { className:'tax-dates-grid' },
+      upcoming.map(d => h('div', { key:d.id,
+        className:'tax-date-card'+(d.st==='overdue'?' tax-card-urgent':d.st==='due-soon'?' tax-card-soon':'')
+      },
+        h('div', { className:'tax-date-top' },
+          h('div', null,
+            h('div', { className:'tax-date-label' }, d.label),
+            d.note && h('div', { className:'tax-date-note' }, d.note)
+          ),
+          h('div', { className:'tax-date-actions' },
+            h('button',{className:'hk-icon-btn',onClick:()=>setDateModal(d)},'Edit'),
+            h('button',{className:'hk-icon-btn danger',onClick:()=>delDate(d.id)},'×')
+          )
+        ),
+        h('div', { className:'tax-date-footer' },
+          h('span', { className:'tax-date-iso' }, fmtDate(d.iso)),
+          d.lbl && h(Badge, { status:d.st, label:d.lbl })
+        )
+      )),
+      upcoming.length===0 && h('p',{style:{color:'var(--text-dim)',fontSize:13,gridColumn:'1/-1'}},'No upcoming dates')
+    ),
+
+    past.length > 0 && h('div', { style:{marginTop:20} },
+      h('p', { style:{fontSize:11,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--text-dim)',marginBottom:12} }, 'Past dates'),
+      h('div', { className:'tax-dates-grid' },
+        past.map(d => h('div', { key:d.id, className:'tax-date-card tax-card-past' },
+          h('div', { className:'tax-date-top' },
+            h('div', null,
+              h('div', { className:'tax-date-label' }, d.label),
+              d.note && h('div', { className:'tax-date-note' }, d.note)
+            ),
+            h('div', { className:'tax-date-actions' },
+              h('button',{className:'hk-icon-btn',onClick:()=>setDateModal(d)},'Edit'),
+              h('button',{className:'hk-icon-btn danger',onClick:()=>delDate(d.id)},'×')
+            )
+          ),
+          h('div', { className:'tax-date-footer' },
+            h('span', { className:'tax-date-iso' }, fmtDate(d.iso)),
+            d.lbl && h('span',{style:{fontSize:11,color:'var(--text-dim)'}},d.lbl)
+          )
+        ))
+      )
+    ),
+
+    // Document checklist
+    h('div', { className:'hk-toolbar', style:{marginTop:32} },
+      h('div', null,
+        h('p', { style:{fontSize:15,fontWeight:500,color:'var(--forest)'} }, 'Document Checklist'),
+        h('p', { className:'section-sub' }, `${taxDocs.filter(d=>d.done).length} of ${taxDocs.length} collected`)
+      ),
+      h('button', { className:'hk-add-btn', onClick:()=>setDocModal('new') }, h('span',null,'+'), 'Add Document')
+    ),
+
+    h('div', { className:'tax-docs-list' },
+      taxDocs.map(d => h('div', { key:d.id, className:'tax-doc-row'+(d.done?' tax-doc-done':'') },
+        h('div', { className:'tax-doc-check', onClick:()=>toggleDoc(d.id) },
+          d.done ? '✓' : ''
+        ),
+        h('div', { className:'tax-doc-body' },
+          h('div', { className:'tax-doc-label' }, d.label),
+          d.detail && h('div', { className:'tax-doc-detail' }, d.detail)
+        ),
+        h('div', { style:{display:'flex',gap:6,flexShrink:0} },
+          h('button',{className:'hk-icon-btn',onClick:()=>setDocModal(d)},'Edit'),
+          h('button',{className:'hk-icon-btn danger',onClick:()=>delDoc(d.id)},'×')
+        )
+      ))
+    ),
+
+    dateModal && h(TaxDateModal, {
+      date:    dateModal==='new'?null:dateModal,
+      onSave:  saveDate,
+      onClose: ()=>setDateModal(null)
+    }),
+    docModal && h(TaxDocModal, {
+      doc:     docModal==='new'?null:docModal,
+      onSave:  saveDoc,
+      onClose: ()=>setDocModal(null)
+    })
+  );
+}
+
+// ── WATER BILL MODAL ─────────────────────────────────────────────────────────
+
+function WaterModal({ onClose, waterBills, setWaterBills }) {
+  const [modal,   setModal]   = useState(null); // null|'new'|bill
+  const [start,   setStart]   = useState('');
+  const [end,     setEnd]     = useState('');
+  const [charge,  setCharge]  = useState('');
+  const [m3cost,  setM3cost]  = useState('');
+
+  function openNew()  { setModal('new'); setStart(''); setEnd(''); setCharge(''); setM3cost(''); }
+  function openEdit(b){ setModal(b); setStart(b.start); setEnd(b.end);
+    setCharge(String(b.charge)); setM3cost(String(b.m3cost||'')); }
+  function saveBill() {
+    if (!start||!end||!charge) return;
+    const entry = { start, end, charge:parseFloat(charge), m3cost:m3cost?parseFloat(m3cost):null };
+    if (modal==='new') {
+      setWaterBills(prev=>[...prev,{...entry,id:Date.now()}].sort((a,b)=>b.start.localeCompare(a.start)));
+    } else {
+      setWaterBills(prev=>prev.map(b=>b.id===modal.id?{...b,...entry}:b));
+    }
+    setModal(null);
+  }
+  function delBill(id) { setWaterBills(prev=>prev.filter(b=>b.id!==id)); }
+
+  const sorted = [...waterBills].sort((a,b)=>b.start.localeCompare(a.start));
+
+  return h('div', { className:'modal-overlay', onClick:onClose },
+    h('div', { className:'modal', style:{width:600,maxHeight:'85vh',overflowY:'auto'},
+      onClick:e=>e.stopPropagation() },
+      h('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20} },
+        h('div', { className:'modal-title', style:{marginBottom:0} }, '💧 Water Bills'),
+        h('button', { className:'hk-add-btn', style:{fontSize:12,padding:'7px 14px'},
+          onClick:openNew }, '+ Add Bill')
+      ),
+
+      sorted.length===0 && h('p',{style:{color:'var(--text-dim)',fontSize:13,marginBottom:16}},'No water bills recorded yet.'),
+
+      h('div', { style:{display:'flex',flexDirection:'column',gap:10,marginBottom:modal?0:0} },
+        sorted.map(b => h('div', { key:b.id, className:'water-bill-row' },
+          h('div', { className:'water-bill-dates' },
+            h('span',null, fmtDate(b.start) + ' → ' + fmtDate(b.end))
+          ),
+          h('div', { className:'water-bill-amounts' },
+            h('span', { className:'water-bill-charge' }, fmt(b.charge)),
+            b.m3cost && h('span', { className:'water-bill-m3' }, '£'+b.m3cost.toFixed(4)+'/m³')
+          ),
+          h('div', { style:{display:'flex',gap:6} },
+            h('button',{className:'hk-icon-btn',onClick:()=>openEdit(b)},'Edit'),
+            h('button',{className:'hk-icon-btn danger',onClick:()=>delBill(b.id)},'×')
+          )
+        ))
+      ),
+
+      modal && h('div', { style:{borderTop:'1px solid var(--border-soft)',paddingTop:20,marginTop:16} },
+        h('p',{style:{fontSize:13,fontWeight:500,color:'var(--forest)',marginBottom:16}},
+          modal==='new'?'Add Bill':'Edit Bill'),
+        h('div', { className:'form-row-2' },
+          h('div',null,
+            h('label',{className:'form-label'},'Start date'),
+            h('input',{type:'date',className:'form-input',value:start,onChange:e=>setStart(e.target.value)})
+          ),
+          h('div',null,
+            h('label',{className:'form-label'},'End date'),
+            h('input',{type:'date',className:'form-input',value:end,onChange:e=>setEnd(e.target.value)})
+          )
+        ),
+        h('div', { className:'form-row-2' },
+          h('div',null,
+            h('label',{className:'form-label'},'Total charge (£)'),
+            h('input',{type:'number',className:'form-input',value:charge,onChange:e=>setCharge(e.target.value)})
+          ),
+          h('div',null,
+            h('label',{className:'form-label'},'Cost per m³ (£)'),
+            h('input',{type:'number',className:'form-input',value:m3cost,
+              placeholder:'optional',onChange:e=>setM3cost(e.target.value)})
+          )
+        ),
+        h('div',{className:'modal-actions'},
+          h('button',{className:'btn-cancel',onClick:()=>setModal(null)},'Cancel'),
+          h('button',{className:'btn-save',onClick:saveBill},'Save Bill')
+        )
+      ),
+
+      h('div',{className:'modal-actions',style:{marginTop:16}},
+        h('button',{className:'btn-save',onClick:onClose},'Close')
+      )
+    )
+  );
+}
+
 // ── PROXY URL ─────────────────────────────────────────────────────────────────
 const PROXY = '/.netlify/functions/proxy';
 
@@ -2232,6 +2625,9 @@ function App() {
   const [tracker,  setTracker]  = useState(TRACKER_ITEMS.map((t,i)=>({...t,id:i+1})));
   const [gardenPlants, setGardenPlants] = useState([]);
   const [links,        setLinks]        = useState(INIT_LINKS);
+  const [taxDates,     setTaxDates]     = useState(INIT_TAX_DATES);
+  const [taxDocs,      setTaxDocs]      = useState(INIT_TAX_DOCS);
+  const [waterBills,   setWaterBills]   = useState([]);
 
   // ── Load on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -2254,6 +2650,11 @@ function App() {
       if (d.homeKeeping && d.homeKeeping.length) setHkTasks(d.homeKeeping);
       if (d.garden && d.garden.length) setGardenPlants(d.garden);
       if (d.links  && d.links.length)  setLinks(d.links);
+      if (d.tax) {
+        if (d.tax.dates && d.tax.dates.length) setTaxDates(d.tax.dates);
+        if (d.tax.docs  && d.tax.docs.length)  setTaxDocs(d.tax.docs);
+      }
+      if (d.water && d.water.length) setWaterBills(d.water);
       if (d.note !== undefined) setNote(d.note);
 
       // Accounts: clean any remaining bad dates client-side, sort newest first
@@ -2293,6 +2694,11 @@ function App() {
   // ── Wrapped setters that auto-save ───────────────────────────────
   function setAndSavePay(v)          { setPay(v);          save('pay', v); }
   function setAndSaveGarden(v)       { setGardenPlants(v); save('garden', typeof v==='function'?v(gardenPlants):v); }
+  function setAndSaveTax(dates, docs) {
+    setTaxDates(dates); setTaxDocs(docs);
+    save('tax', { dates, docs });
+  }
+  function setAndSaveWater(v)       { setWaterBills(v);   save('water', typeof v==='function'?v(waterBills):v); }
   function setAndSaveNote(v)      { setNote(v);      save('note', v); }
   function setAndSaveLinks(v)     { setLinks(v);     save('links', typeof v==='function'?v(links):v); }
   function setAndSaveHK(v)       { setHkTasks(v);  save('homeKeeping', typeof v === 'function' ? v(hkTasks) : v); }
@@ -2339,11 +2745,12 @@ function App() {
     h(Nav, { tab, setTab }),
     h(SaveBar, { status: saveStatus }),
     tab==='Home'         && h(HomePage,        { hkTasks, note, setNote:setAndSaveNote, gardenPlants }),
-    tab==='Budget'       && h(BudgetPage,      { deposits, setDeposits:wrapDeposits, bills, setBills:wrapBills, joint, setJoint:wrapJoint, personal, setPersonal:wrapPersonal, pay }),
+    tab==='Budget'       && h(BudgetPage,      { deposits, setDeposits:wrapDeposits, bills, setBills:wrapBills, joint, setJoint:wrapJoint, personal, setPersonal:wrapPersonal, pay, waterBills, setWaterBills:setAndSaveWater }),
     tab==='Accounts'     && h(AccountsPage,    { pay, setPay:setAndSavePay, accounts, setAccounts:setAndSaveAccounts, links, setLinks:setAndSaveLinks }),
     tab==='Tracker'      && h(TrackerPage,     { trackerItems:tracker, setTrackerItems:setAndSaveTracker }),
     tab==='Home Keeping' && h(HomeKeepingPage, { tasks:hkTasks, setTasks:setAndSaveHK }),
-    tab==='Garden'       && h(GardenPage,      { plants:gardenPlants, setPlants:setAndSaveGarden })
+    tab==='Garden'       && h(GardenPage,      { plants:gardenPlants, setPlants:setAndSaveGarden }),
+    tab==='Tax'          && h(TaxPage,         { taxDates, taxDocs, setTaxDates, setTaxDocs, onSave:setAndSaveTax })
   );
 }
 
