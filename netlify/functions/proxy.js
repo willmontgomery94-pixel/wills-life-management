@@ -1,31 +1,52 @@
 exports.handler = async function (event) {
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxx7AX6OrDSHfEmF4V70hkGFYzGWoDh76yfs3DK0ZkIvGr8ZkSvhvnEr2bJZM0lV0U/exec";
+  const SUPA_URL = "https://igpmsxxnvzbnbnmyumfn.supabase.co";
+  const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlncG1zeHhudnpibmJubXl1bWZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NzYwMTUsImV4cCI6MjA5NDM1MjAxNX0.ucTwrrsXZkVlGWyTzU1svLpr2RXyBjOCV6UoK3FpRhU";
 
-  const headers = {
+  const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, apikey, Authorization, Prefer",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   };
 
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers, body: "" };
+    return { statusCode: 204, headers: corsHeaders, body: "" };
   }
 
-  const url =
-    event.httpMethod === "GET"
-      ? `${APPS_SCRIPT_URL}?${new URLSearchParams(event.queryStringParameters || {})}`
-      : APPS_SCRIPT_URL;
+  // Strip the /.netlify/functions/proxy prefix to get the Supabase path
+  // e.g. /.netlify/functions/proxy/rest/v1/pay?id=eq.1
+  const path = event.path.replace("/.netlify/functions/proxy", "") || "/";
+  const qs   = event.rawQuery ? "?" + event.rawQuery : "";
+  const url  = SUPA_URL + path + qs;
 
-  const fetchOptions =
-    event.httpMethod === "POST"
-      ? { method:"POST", headers:{"Content-Type":"text/plain"}, body:event.body, redirect:"follow" }
-      : { method:"GET", redirect:"follow" };
+  const supaHeaders = {
+    "Content-Type": "application/json",
+    "apikey": SUPA_KEY,
+    "Authorization": "Bearer " + SUPA_KEY,
+  };
+
+  // Forward Prefer header if present
+  if (event.headers["prefer"]) {
+    supaHeaders["Prefer"] = event.headers["prefer"];
+  }
 
   try {
-    const response = await fetch(url, fetchOptions);
+    const response = await fetch(url, {
+      method:  event.httpMethod,
+      headers: supaHeaders,
+      body:    ["GET","HEAD","DELETE"].includes(event.httpMethod) ? undefined : event.body,
+    });
+
     const text = await response.text();
-    return { statusCode:200, headers:{...headers,"Content-Type":"application/json"}, body:text };
-  } catch(err) {
-    return { statusCode:500, headers, body:JSON.stringify({ok:false,error:err.message}) };
+    return {
+      statusCode: response.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: text || "[]",
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: err.message }),
+    };
   }
 };

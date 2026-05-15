@@ -2569,27 +2569,228 @@ function WaterModal({ onClose, waterBills, setWaterBills }) {
   );
 }
 
-// ── PROXY URL ─────────────────────────────────────────────────────────────────
+// ── SUPABASE VIA PROXY (avoids CORS) ─────────────────────────────────────────
 const PROXY = '/.netlify/functions/proxy';
 
-// ── SAVE / LOAD ───────────────────────────────────────────────────────────────
-async function saveSection(section, data) {
-  try {
-    await fetch(PROXY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ section, data }),
-    });
-  } catch(e) { console.error('Save failed:', section, e); }
+async function sbFetch(method, table, qs='', body=null, prefer='') {
+  const url = `${PROXY}/rest/v1/${table}${qs ? '?'+qs : ''}`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (prefer) headers['Prefer'] = prefer;
+  const opts = { method, headers };
+  if (body !== null) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`${method} ${table}: ${r.status} ${t}`);
+  }
+  const text = await r.text();
+  return text ? JSON.parse(text) : [];
 }
 
+async function sbGet(table, params='') {
+  return sbFetch('GET', table, params);
+}
+async function sbDelete(table, qs) {
+  return sbFetch('DELETE', table, qs);
+}
+async function sbUpsert(table, rows) {
+  if (!rows || (Array.isArray(rows) && rows.length===0)) return;
+  const body = Array.isArray(rows) ? rows : [rows];
+  return sbFetch('POST', table, '', body, 'resolution=merge-duplicates,return=minimal');
+}
+async function sbInsert(table, rows) {
+  if (!rows || (Array.isArray(rows) && rows.length===0)) return;
+  const body = Array.isArray(rows) ? rows : [rows];
+  return sbFetch('POST', table, '', body, 'return=minimal');
+}
+
+// ── LOAD ALL ──────────────────────────────────────────────────────────────────
 async function loadAll() {
   try {
-    const res  = await fetch(PROXY + '?action=load');
-    const json = await res.json();
-    if (json.ok) return json;
-  } catch(e) { console.error('Load failed', e); }
-  return null;
+    const [payRows, depRows, itemRows, accRows, trackerRows,
+           hkRows, gardenRows, linkRows, taxDateRows, taxDocRows,
+           waterRows, noteRows] = await Promise.all([
+      sbGet('pay','id=eq.1'),
+      sbGet('budget_deposits','id=eq.1'),
+      sbGet('budget_items','order=sort_order.asc'),
+      sbGet('accounts','order=label.asc,iso.desc'),
+      sbGet('tracker','order=id.asc'),
+      sbGet('home_keeping','order=id.asc'),
+      sbGet('garden','order=id.asc'),
+      sbGet('links','order=sort_order.asc'),
+      sbGet('tax_dates','order=iso.asc'),
+      sbGet('tax_docs','order=sort_order.asc'),
+      sbGet('water_bills','order=start_date.desc'),
+      sbGet('notes','id=eq.1'),
+    ]);
+
+    const p = payRows[0] || {};
+    const pay = {
+      salaryAnnual:    p.salary_annual    || 32019,
+      incomeTaxAnnual: p.income_tax_annual|| 3696,
+      niAnnual:        p.ni_annual        || 1555,
+      pensionPct:      p.pension_pct      || 4.03,
+    };
+
+    const dep = depRows[0] || {};
+    const deposits = { bills: dep.bills||900, joint: dep.joint||600, personal: dep.personal||500 };
+
+    const bills    = itemRows.filter(r=>r.section==='bills')   .map(dbToItem);
+    const joint    = itemRows.filter(r=>r.section==='joint')   .map(dbToItem);
+    const personal = itemRows.filter(r=>r.section==='personal').map(dbToItem);
+
+    // Group accounts by label
+    const accMap = {};
+    accRows.forEach(r => {
+      if (!accMap[r.label]) accMap[r.label] = [];
+      accMap[r.label].push({ iso:r.iso, date:fmtDate(r.iso), value:Number(r.value) });
+    });
+    const accountOrder = ['Barclays Savings','Monzo','OAKGLEN','Vanguard'];
+    const accounts = accountOrder.map(label => ({
+      label, entries: sortEntriesDesc(accMap[label]||[])
+    }));
+
+    const tracker = trackerRows.map(dbToTracker);
+    const homeKeeping = hkRows.map(dbToHK);
+    const garden = gardenRows.map(dbToGarden);
+    const links  = linkRows.map(dbToLink);
+    const taxDates = taxDateRows.map(r=>({ id:r.id, iso:r.iso, label:r.label, note:r.note||'' }));
+    const taxDocs  = taxDocRows.map(r=>({ id:r.id, label:r.label, detail:r.detail||'', done:!!r.done }));
+    const water = waterRows.map(r=>({ id:r.id, start:r.start_date, end:r.end_date,
+      charge:Number(r.charge), m3cost:r.m3_cost?Number(r.m3_cost):null }));
+    const note = noteRows[0]?.content || '';
+
+    return { ok:true, pay, deposits, bills, joint, personal,
+      accounts, tracker, homeKeeping, garden, links,
+      tax:{dates:taxDates,docs:taxDocs}, water, note };
+  } catch(e) {
+    console.error('Load failed:', e);
+    return null;
+  }
+}
+
+// ── DB MAPPERS ─────────────────────────────────────────────────────────────────
+function dbToItem(r) {
+  return { id:r.id, name:r.name, amount:Number(r.amount), isPot:!!r.is_pot,
+    rawAmount:r.raw_amount?Number(r.raw_amount):null,
+    freqNum:r.freq_num||1, freqUnit:r.freq_unit||'months' };
+}
+function dbToTracker(r) {
+  return { id:r.id, name:r.name, provider:r.provider||'',
+    cost:r.cost!=null?Number(r.cost):null,
+    lastDone:r.last_done||null, renewal:r.renewal||null, notes:r.notes||'',
+    schedNum:r.sched_num||1, schedUnit:r.sched_unit||'months',
+    linkName:r.link_name||'', linkUrl:r.link_url||'',
+    username:r.username||'', pwHint:r.pw_hint||'' };
+}
+function dbToHK(r) {
+  return { id:r.id, name:r.name, frequency:r.frequency,
+    lastDone:r.last_done||null, nextDue:r.next_due||null };
+}
+function dbToGarden(r) {
+  return { id:r.id, name:r.name, variety:r.variety||'',
+    plantDate:r.plant_date||null, bloom:r.bloom||'',
+    notes:r.notes||'', skipYear:!!r.skip_year };
+}
+function dbToLink(r) {
+  return { id:r.id, name:r.name, url:r.url,
+    username:r.username||'', hint:r.hint||'' };
+}
+
+// ── SAVE SECTION ───────────────────────────────────────────────────────────────
+async function saveSection(section, data) {
+  try {
+    if (section === 'pay') {
+      await sbUpsert('pay', [{
+        id:1,
+        salary_annual:    data.salaryAnnual,
+        income_tax_annual:data.incomeTaxAnnual,
+        ni_annual:        data.niAnnual,
+        pension_pct:      data.pensionPct,
+      }]);
+    }
+    else if (section === 'budget') {
+      await sbUpsert('budget_deposits', [{ id:1,
+        bills:data.deposits.bills, joint:data.deposits.joint, personal:data.deposits.personal }]);
+      // Replace all items: delete then insert
+      await sbDelete('budget_items', 'id=gte.0');
+      const allItems = [
+        ...data.bills.map((r,i)=>itemToDb(r,'bills',i)),
+        ...data.joint.map((r,i)=>itemToDb(r,'joint',i)),
+        ...data.personal.map((r,i)=>itemToDb(r,'personal',i)),
+      ];
+      if (allItems.length) await sbInsert('budget_items', allItems);
+    }
+    else if (section === 'accounts') {
+      // Delete all then reinsert
+      await sbDelete('accounts', 'id=gte.0');
+      const rows = [];
+      data.forEach(acc => acc.entries.forEach(e => rows.push({
+        label:acc.label, iso:e.iso, display_date:fmtDate(e.iso), value:e.value
+      })));
+      if (rows.length) await sbInsert('accounts', rows);
+    }
+    else if (section === 'tracker') {
+      await sbDelete('tracker', 'id=gte.0');
+      if (data.length) await sbInsert('tracker', data.map(trackerToDb));
+    }
+    else if (section === 'homeKeeping') {
+      await sbDelete('home_keeping', 'id=gte.0');
+      if (data.length) await sbInsert('home_keeping', data.map(hkToDb));
+    }
+    else if (section === 'garden') {
+      await sbDelete('garden', 'id=gte.0');
+      if (data.length) await sbInsert('garden', data.map(gardenToDb));
+    }
+    else if (section === 'links') {
+      await sbDelete('links', 'id=gte.0');
+      if (data.length) await sbInsert('links', data.map((l,i)=>({
+        id:l.id, name:l.name, url:l.url, username:l.username||'', hint:l.hint||'', sort_order:i
+      })));
+    }
+    else if (section === 'tax') {
+      await sbDelete('tax_dates', 'id=gte.0');
+      await sbDelete('tax_docs', 'id=gte.0');
+      if (data.dates.length) await sbInsert('tax_dates', data.dates.map(d=>({
+        id:d.id, iso:d.iso, label:d.label, note:d.note||''
+      })));
+      if (data.docs.length) await sbInsert('tax_docs', data.docs.map((d,i)=>({
+        id:d.id, label:d.label, detail:d.detail||'', done:!!d.done, sort_order:i
+      })));
+    }
+    else if (section === 'water') {
+      await sbDelete('water_bills', 'id=gte.0');
+      if (data.length) await sbInsert('water_bills', data.map(b=>({
+        id:b.id, start_date:b.start, end_date:b.end, charge:b.charge,
+        m3_cost:b.m3cost!=null?b.m3cost:null
+      })));
+    }
+    else if (section === 'note') {
+      await sbUpsert('notes', [{ id:1, content:String(data) }]);
+    }
+  } catch(e) { console.error('Save error:', section, e); }
+}
+
+// ── DB WRITE MAPPERS ──────────────────────────────────────────────────────────
+function itemToDb(r, section, i) {
+  return { id:r.id, section, name:r.name, amount:r.amount, is_pot:!!r.isPot,
+    raw_amount:r.rawAmount||null, freq_num:r.freqNum||1, freq_unit:r.freqUnit||'months', sort_order:i };
+}
+function trackerToDb(r) {
+  return { id:r.id, name:r.name, provider:r.provider||'',
+    cost:r.cost!=null?r.cost:null, last_done:r.lastDone||null, renewal:r.renewal||null,
+    notes:r.notes||'', sched_num:r.schedNum||1, sched_unit:r.schedUnit||'months',
+    link_name:r.linkName||'', link_url:r.linkUrl||'',
+    username:r.username||'', pw_hint:r.pwHint||'' };
+}
+function hkToDb(r) {
+  return { id:r.id, name:r.name, frequency:r.frequency,
+    last_done:r.lastDone||null, next_due:r.nextDue||null };
+}
+function gardenToDb(r) {
+  return { id:r.id, name:r.name, variety:r.variety||'',
+    plant_date:r.plantDate||null, bloom:r.bloom||'',
+    notes:r.notes||'', skip_year:!!r.skipYear };
 }
 
 // ── SAVE INDICATOR ────────────────────────────────────────────────────────────
@@ -2657,22 +2858,9 @@ function App() {
       if (d.water && d.water.length) setWaterBills(d.water);
       if (d.note !== undefined) setNote(d.note);
 
-      // Accounts: clean any remaining bad dates client-side, sort newest first
+      // Accounts — Supabase returns clean ISO dates, just sort
       if (d.accounts && d.accounts.some(a => a.entries.length > 0)) {
-        const normalised = d.accounts.map(a => ({
-          ...a,
-          entries: sortEntriesDesc(
-            a.entries
-              .map(e => {
-                const iso = cleanDate(e.iso) || cleanDate(e.date) || '';
-                return { ...e, iso, date: iso ? fmtDate(iso) : '—' };
-              })
-              .filter(e => e.iso !== '')
-          )
-        }));
-        setAccounts(normalised);
-        // Write cleaned data back so sheet is clean permanently
-        saveSection('accounts', normalised);
+        setAccounts(d.accounts);
       } else {
         // First run — seed from hardcoded history
         setAccounts(INIT_ACCOUNTS);
